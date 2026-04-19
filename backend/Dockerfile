@@ -13,8 +13,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 CMD ["npm", "run", "start:dev"]
 
 FROM base AS build
-ENV NODE_ENV=production
-RUN npm ci
+RUN npm ci --include=dev
 COPY . .
 RUN npm run build
 
