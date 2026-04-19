@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource } from 'typeorm';
+import type { MysqlConnectionOptions } from 'typeorm/driver/mysql/MysqlConnectionOptions';
 import { config as loadEnv } from 'dotenv';
 import { join } from 'path';
 import { Usuario } from '../usuarios/usuario.entity';
@@ -8,7 +9,7 @@ import { Configuracion } from '../configuracion/configuracion.entity';
 
 loadEnv({ path: join(process.cwd(), '.env') });
 
-export const typeOrmOptions: DataSourceOptions = {
+export const typeOrmOptions: MysqlConnectionOptions = {
   type: 'mysql',
   host: process.env.DB_HOST ?? 'hw_mysql',
   port: Number(process.env.DB_PORT ?? 3306),
