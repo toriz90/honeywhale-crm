@@ -1,0 +1,83 @@
+import { Usuario } from './usuario';
+
+export type EtapaLead =
+  | 'NUEVO'
+  | 'CONTACTADO'
+  | 'EN_NEGOCIACION'
+  | 'OFERTA_ENVIADA'
+  | 'RECUPERADO'
+  | 'PERDIDO';
+
+export type Moneda = 'MXN' | 'USD';
+
+export const ETAPAS: EtapaLead[] = [
+  'NUEVO',
+  'CONTACTADO',
+  'EN_NEGOCIACION',
+  'OFERTA_ENVIADA',
+  'RECUPERADO',
+  'PERDIDO',
+];
+
+export const ETAPA_LABELS: Record<EtapaLead, string> = {
+  NUEVO: 'Nuevo',
+  CONTACTADO: 'Contactado',
+  EN_NEGOCIACION: 'En negociación',
+  OFERTA_ENVIADA: 'Oferta enviada',
+  RECUPERADO: 'Recuperado',
+  PERDIDO: 'Perdido',
+};
+
+export interface Lead {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string;
+  producto: string;
+  monto: string;
+  moneda: Moneda;
+  orden_woo_id: string | null;
+  etapa: EtapaLead;
+  motivo_abandono: string | null;
+  asignado_a_id: string | null;
+  asignadoA: Usuario | null;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLeadPayload {
+  nombre: string;
+  email?: string;
+  telefono: string;
+  producto: string;
+  monto: number;
+  moneda?: Moneda;
+  orden_woo_id?: string;
+  etapa?: EtapaLead;
+  motivo_abandono?: string;
+  asignado_a_id?: string;
+  notas?: string;
+}
+
+export type UpdateLeadPayload = Partial<CreateLeadPayload>;
+
+export interface FiltrosLeads {
+  etapa?: EtapaLead;
+  asignado_a_id?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  orderBy?: string;
+  order?: 'ASC' | 'DESC';
+}
+
+export interface LeadsPaginados {
+  data: Lead[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export type LeadKanban = Record<EtapaLead, Lead[]>;

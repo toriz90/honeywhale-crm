@@ -1,0 +1,77 @@
+# ----- Dependencias -----
+node_modules/
+jspm_packages/
+.pnp
+.pnp.js
+
+# ----- Build / Dist -----
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+coverage/
+
+# ----- Variables de entorno -----
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+
+# ----- Logs -----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ----- Sistema operativo -----
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ----- Editores / IDE -----
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ----- TypeScript -----
+*.tsbuildinfo
+
+# ----- Testing -----
+.nyc_output/
+junit.xml
+
+# ----- Docker / Runtime -----
+*.pid
+*.seed
+*.pid.lock
+
+# ----- Datos locales / dumps -----
+*.sqlite
+*.sqlite3
+*.db
+dump.rdb
+*.sql.gz
+
+# ----- Otros -----
+.eslintcache
+.stylelintcache
+
+# ----- Claude Code -----
+.claude/

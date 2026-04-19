@@ -1,0 +1,23 @@
+# ==========================================================
+# HoneyWhale CRM — Overrides de producción
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ==========================================================
+
+services:
+  hw_api:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+    volumes: !reset []
+
+  hw_nginx:
+    # hw_nginx sigue conectado a ambas redes (hw_network y traefik-public),
+    # heredadas del docker-compose.yml base.
+    #
+    # En producción el acceso público es vía cloudflared a través de la red
+    # traefik-public (servicio: hw_nginx, puerto interno 80). Descomentar
+    # solo si se necesita acceso directo por LAN.
+    ports: !reset []
+    # ports:
+    #   - "${NGINX_PORT:-8021}:80"

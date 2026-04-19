@@ -1,0 +1,246 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Plus, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { Topbar } from '@/components/layout/Topbar';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Badge } from '@/components/ui/Badge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { LeadFilters } from '@/components/leads/LeadFilters';
+import { LeadKanban } from '@/components/leads/LeadKanban';
+import { LeadForm } from '@/components/leads/LeadForm';
+import {
+  useEliminarLead,
+  useLeadKanban,
+  useLeads,
+} from '@/hooks/useLeads';
+import {
+  ETAPA_LABELS,
+  EtapaLead,
+  FiltrosLeads,
+  Lead,
+} from '@/types/lead';
+import { formatFecha, formatMoneda } from '@/lib/utils';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { mensajeDeError } from '@/lib/api';
+
+type Vista = 'kanban' | 'lista';
+
+export function LeadsPage() {
+  const [vista, setVista] = useState<Vista>('kanban');
+  const [filtros, setFiltros] = useState<FiltrosLeads>({
+    page: 1,
+    limit: 20,
+    orderBy: 'created_at',
+    order: 'DESC',
+  });
+  const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [borrarLead, setBorrarLead] = useState<Lead | null>(null);
+  const usuario = useAuthStore((s) => s.usuario);
+  const puedeCrear = usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
+
+  const kanban = useLeadKanban();
+  const lista = useLeads(filtros);
+  const eliminar = useEliminarLead();
+
+  const abrirNuevo = () => {
+    setEditLead(null);
+    setModalOpen(true);
+  };
+
+  const abrirEditar = (lead: Lead) => {
+    setEditLead(lead);
+    setModalOpen(true);
+  };
+
+  const confirmarBorrar = async () => {
+    if (!borrarLead) return;
+    try {
+      await eliminar.mutateAsync(borrarLead.id);
+      toast.success('Lead eliminado');
+      setBorrarLead(null);
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'No se pudo eliminar el lead'));
+    }
+  };
+
+  return (
+    <>
+      <Topbar
+        titulo="Leads"
+        acciones={
+          <>
+            <div className="flex rounded-md border border-border">
+              <button
+                onClick={() => setVista('kanban')}
+                className={`flex items-center gap-1 px-3 py-1.5 text-sm ${
+                  vista === 'kanban' ? 'bg-elev-2 text-primary' : 'text-secondary'
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                Kanban
+              </button>
+              <button
+                onClick={() => setVista('lista')}
+                className={`flex items-center gap-1 px-3 py-1.5 text-sm ${
+                  vista === 'lista' ? 'bg-elev-2 text-primary' : 'text-secondary'
+                }`}
+              >
+                <List className="h-4 w-4" />
+                Lista
+              </button>
+            </div>
+            {puedeCrear && (
+              <Button onClick={abrirNuevo}>
+                <Plus className="h-4 w-4" />
+                Nuevo lead
+              </Button>
+            )}
+          </>
+        }
+      />
+      {vista === 'kanban' ? (
+        <div className="flex-1 overflow-hidden">
+          {kanban.isLoading || !kanban.data ? (
+            <div className="flex gap-3 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-full min-w-[260px]" />
+              ))}
+            </div>
+          ) : (
+            <LeadKanban data={kanban.data} onClickLead={abrirEditar} />
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="mb-4">
+            <LeadFilters filtros={filtros} onChange={setFiltros} />
+          </div>
+          <div className="overflow-hidden rounded-md border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-elev-2 text-left text-xs uppercase text-secondary">
+                <tr>
+                  <th className="px-3 py-2">Nombre</th>
+                  <th className="px-3 py-2">Producto</th>
+                  <th className="px-3 py-2">Monto</th>
+                  <th className="px-3 py-2">Etapa</th>
+                  <th className="px-3 py-2">Asignado</th>
+                  <th className="px-3 py-2">Creado</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {lista.isLoading || !lista.data ? (
+                  <tr>
+                    <td colSpan={7} className="p-4">
+                      <Skeleton className="h-8" />
+                    </td>
+                  </tr>
+                ) : lista.data.data.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="p-8 text-center text-sm text-secondary"
+                    >
+                      No hay leads con esos filtros.
+                    </td>
+                  </tr>
+                ) : (
+                  lista.data.data.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      className="cursor-pointer border-t border-border hover:bg-elev-2"
+                      onClick={() => abrirEditar(lead)}
+                    >
+                      <td className="px-3 py-2 text-primary">{lead.nombre}</td>
+                      <td className="px-3 py-2 text-secondary">{lead.producto}</td>
+                      <td className="px-3 py-2 text-accent">
+                        {formatMoneda(lead.monto, lead.moneda)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge tono="accent">
+                          {ETAPA_LABELS[lead.etapa as EtapaLead]}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-secondary">
+                        {lead.asignadoA?.nombre ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-secondary">
+                        {formatFecha(lead.created_at)}
+                      </td>
+                      <td
+                        className="px-3 py-2 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {puedeCrear && (
+                          <button
+                            onClick={() => setBorrarLead(lead)}
+                            className="rounded p-1 text-danger hover:bg-danger/10"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {lista.data && lista.data.totalPages > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm text-secondary">
+              <span>
+                Página {lista.data.page} de {lista.data.totalPages} ·{' '}
+                {lista.data.total} leads
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={lista.data.page <= 1}
+                  onClick={() =>
+                    setFiltros((f) => ({ ...f, page: (f.page ?? 1) - 1 }))
+                  }
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={lista.data.page >= lista.data.totalPages}
+                  onClick={() =>
+                    setFiltros((f) => ({ ...f, page: (f.page ?? 1) + 1 }))
+                  }
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editLead ? 'Editar lead' : 'Nuevo lead'}
+        size="lg"
+      >
+        <LeadForm lead={editLead} onSuccess={() => setModalOpen(false)} />
+      </Modal>
+
+      <ConfirmDialog
+        open={!!borrarLead}
+        title="Eliminar lead"
+        message={`¿Seguro que quieres eliminar el lead de ${borrarLead?.nombre}? Esta acción se puede revertir desde la base de datos (soft delete).`}
+        danger
+        loading={eliminar.isPending}
+        onConfirm={confirmarBorrar}
+        onCancel={() => setBorrarLead(null)}
+      />
+    </>
+  );
+}

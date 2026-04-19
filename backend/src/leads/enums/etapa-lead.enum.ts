@@ -1,0 +1,13 @@
+export enum EtapaLead {
+  NUEVO = 'NUEVO',
+  CONTACTADO = 'CONTACTADO',
+  EN_NEGOCIACION = 'EN_NEGOCIACION',
+  OFERTA_ENVIADA = 'OFERTA_ENVIADA',
+  RECUPERADO = 'RECUPERADO',
+  PERDIDO = 'PERDIDO',
+}
+
+export enum Moneda {
+  MXN = 'MXN',
+  USD = 'USD',
+}

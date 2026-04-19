@@ -1,0 +1,118 @@
+services:
+  hw_mysql:
+    image: mysql:8.0
+    container_name: hw_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - hw_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - hw_network
+
+  hw_redis:
+    image: redis:7-alpine
+    container_name: hw_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - hw_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hw_network
+
+  hw_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: hw_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      API_PORT: ${API_PORT}
+      DB_HOST: hw_mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-admin@honeywhale.com}
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      hw_mysql:
+        condition: service_healthy
+      hw_redis:
+        condition: service_healthy
+    expose:
+      - "3000"
+    networks:
+      - hw_network
+
+  hw_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hw_frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - hw_api
+    networks:
+      - hw_network
+
+  hw_nginx:
+    image: nginx:alpine
+    container_name: hw_nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8021}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - hw_api
+      - hw_frontend
+    networks:
+      - hw_network
+      - traefik-public
+
+volumes:
+  hw_mysql_data:
+    driver: local
+  hw_redis_data:
+    driver: local
+
+networks:
+  hw_network:
+    driver: bridge
+    name: hw_network
+  traefik-public:
+    external: true
+    name: traefik-public
