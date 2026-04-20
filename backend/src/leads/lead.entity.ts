@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
 import { EtapaLead, Moneda } from './enums/etapa-lead.enum';
+import { Origen } from './enums/origen.enum';
 
 @Entity({ name: 'leads' })
 export class Lead {
@@ -35,7 +36,7 @@ export class Lead {
   @Column({ type: 'enum', enum: Moneda, default: Moneda.MXN })
   moneda!: Moneda;
 
-  @Index('IDX_leads_orden_woo_id')
+  @Index('UQ_leads_orden_woo_id', { unique: true })
   @Column({
     name: 'orden_woo_id',
     type: 'varchar',
@@ -43,6 +44,9 @@ export class Lead {
     nullable: true,
   })
   orden_woo_id!: string | null;
+
+  @Column({ type: 'enum', enum: Origen, default: Origen.MANUAL })
+  origen!: Origen;
 
   @Index('IDX_leads_etapa')
   @Column({ type: 'enum', enum: EtapaLead, default: EtapaLead.NUEVO })

@@ -3,6 +3,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
 import { SmtpForm } from '@/components/configuracion/SmtpForm';
 import { GoogleOAuthForm } from '@/components/configuracion/GoogleOAuthForm';
+import { WoocommerceForm } from '@/components/configuracion/WoocommerceForm';
 
 export function ConfiguracionPage() {
   const { data, isLoading } = useConfiguracion();
@@ -15,11 +16,13 @@ export function ConfiguracionPage() {
           <>
             <Skeleton className="h-64" />
             <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
           </>
         ) : (
           <>
             <SmtpForm configuracion={data} />
             <GoogleOAuthForm configuracion={data} />
+            <WoocommerceForm configuracion={data} />
           </>
         )}
       </div>

@@ -3,9 +3,12 @@ import { api, unwrap } from '@/lib/api';
 import {
   ActualizarConfiguracionPayload,
   ConfiguracionUI,
+  WoocommerceSyncResult,
+  WoocommerceTestResult,
 } from '@/types/configuracion';
 
 const QK = 'configuracion';
+const QK_WC_PUBLICO = 'woocommerce-publico';
 
 export function useConfiguracion() {
   return useQuery({
@@ -38,5 +41,41 @@ export function useEnviarCorreoPrueba() {
       unwrap<{ ok: boolean; messageId?: string; error?: string }>(
         api.post('/configuracion/enviar-correo-prueba', { destinatario }),
       ),
+  });
+}
+
+export function useProbarWoocommerce() {
+  return useMutation({
+    mutationFn: () =>
+      unwrap<WoocommerceTestResult>(api.post('/woocommerce/probar-conexion')),
+  });
+}
+
+export function useSyncWoocommerce() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap<WoocommerceSyncResult>(api.post('/woocommerce/sync-manual')),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QK] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
+    },
+  });
+}
+
+export interface WoocommercePublico {
+  habilitado: boolean;
+  url: string | null;
+}
+
+export function useWoocommercePublico() {
+  return useQuery({
+    queryKey: [QK_WC_PUBLICO],
+    queryFn: () =>
+      unwrap<WoocommercePublico>(
+        api.get('/configuracion/woocommerce-publico'),
+      ),
+    staleTime: 5 * 60 * 1000,
   });
 }

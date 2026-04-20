@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { useCrearLead, useActualizarLead } from '@/hooks/useLeads';
+import { useUsuariosAsignables } from '@/hooks/useUsuarios';
 import { mensajeDeError } from '@/lib/api';
 
 const esquema = z.object({
@@ -32,6 +33,7 @@ const esquema = z.object({
   ]),
   orden_woo_id: z.string().max(60).optional().or(z.literal('')),
   motivo_abandono: z.string().max(255).optional().or(z.literal('')),
+  asignado_a_id: z.string().optional().or(z.literal('')),
   notas: z.string().optional().or(z.literal('')),
 });
 
@@ -45,6 +47,7 @@ interface LeadFormProps {
 export function LeadForm({ lead, onSuccess }: LeadFormProps) {
   const crear = useCrearLead();
   const actualizar = useActualizarLead();
+  const asignables = useUsuariosAsignables(['AGENTE', 'SUPERVISOR']);
 
   const {
     register,
@@ -62,9 +65,18 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
       etapa: lead?.etapa ?? 'NUEVO',
       orden_woo_id: lead?.orden_woo_id ?? '',
       motivo_abandono: lead?.motivo_abandono ?? '',
+      asignado_a_id: lead?.asignado_a_id ?? '',
       notas: lead?.notas ?? '',
     },
   });
+
+  const opcionesAsignables = [
+    { value: '', label: 'Sin asignar' },
+    ...(asignables.data ?? []).map((u) => ({
+      value: u.id,
+      label: `${u.nombre} (${u.rol})`,
+    })),
+  ];
 
   const onSubmit = handleSubmit(async (values) => {
     const payload = {
@@ -72,6 +84,7 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
       email: values.email || undefined,
       orden_woo_id: values.orden_woo_id || undefined,
       motivo_abandono: values.motivo_abandono || undefined,
+      asignado_a_id: values.asignado_a_id ? values.asignado_a_id : null,
       notas: values.notas || undefined,
     };
     try {
@@ -133,6 +146,13 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
         label="ID de orden WooCommerce"
         {...register('orden_woo_id')}
         error={errors.orden_woo_id?.message}
+      />
+      <Select
+        label="Asignar a"
+        {...register('asignado_a_id')}
+        options={opcionesAsignables}
+        error={errors.asignado_a_id?.message}
+        disabled={asignables.isLoading}
       />
       <div className="md:col-span-2">
         <Input

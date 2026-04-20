@@ -11,6 +11,12 @@ export interface ConfiguracionUI {
   tieneGoogleClientSecret: boolean;
   google_redirect_uri: string | null;
   google_habilitado: boolean;
+  woocommerce_habilitado: boolean;
+  woocommerce_url: string | null;
+  woocommerce_consumer_key: string | null;
+  tieneWoocommerceConsumerSecret: boolean;
+  tieneWoocommerceWebhookSecret: boolean;
+  woocommerce_ultima_sync: string | null;
   updated_at: string;
   updated_by_id: string | null;
 }
@@ -27,6 +33,24 @@ export interface ActualizarConfiguracionPayload {
   google_client_secret?: string;
   google_redirect_uri?: string | null;
   google_habilitado?: boolean;
+  woocommerce_habilitado?: boolean;
+  woocommerce_url?: string | null;
+  woocommerce_consumer_key?: string | null;
+  woocommerce_consumer_secret?: string;
+  woocommerce_webhook_secret?: string;
+}
+
+export interface WoocommerceTestResult {
+  ok: boolean;
+  mensaje: string;
+  version?: string;
+}
+
+export interface WoocommerceSyncResult {
+  total: number;
+  creados: number;
+  ignorados: number;
+  errores: { pedidoId?: number; mensaje: string }[];
 }
 
 export interface KpisDashboard {

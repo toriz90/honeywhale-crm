@@ -1,0 +1,5 @@
+export enum Origen {
+  MANUAL = 'MANUAL',
+  WOOCOMMERCE = 'WOOCOMMERCE',
+  IMPORTADO = 'IMPORTADO',
+}

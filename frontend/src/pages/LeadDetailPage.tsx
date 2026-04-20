@@ -1,19 +1,63 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { Topbar } from '@/components/layout/Topbar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useLead } from '@/hooks/useLeads';
+import { Select } from '@/components/ui/Select';
+import { useActualizarLead, useLead } from '@/hooks/useLeads';
+import { useUsuariosAsignables } from '@/hooks/useUsuarios';
+import { useWoocommercePublico } from '@/hooks/useConfiguracion';
 import { LeadForm } from '@/components/leads/LeadForm';
 import { ETAPA_LABELS, EtapaLead } from '@/types/lead';
 import { formatFecha, formatMoneda } from '@/lib/utils';
+import { mensajeDeError } from '@/lib/api';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading } = useLead(id);
+  const asignables = useUsuariosAsignables(['AGENTE', 'SUPERVISOR']);
+  const actualizar = useActualizarLead();
+  const wcPublico = useWoocommercePublico();
+  const usuario = useAuthStore((s) => s.usuario);
+  const puedeReasignar =
+    usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
+
+  const opcionesAsignables = [
+    { value: '', label: 'Sin asignar' },
+    ...(asignables.data ?? []).map((u) => ({
+      value: u.id,
+      label: `${u.nombre} (${u.rol})`,
+    })),
+  ];
+
+  const onChangeAsignado = async (nuevoId: string) => {
+    if (!data) return;
+    try {
+      await actualizar.mutateAsync({
+        id: data.id,
+        payload: { asignado_a_id: nuevoId ? nuevoId : null },
+      });
+      toast.success('Asignación actualizada');
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'No se pudo reasignar el lead'));
+    }
+  };
+
+  const mostrarBloqueWC =
+    !!data &&
+    data.origen === 'WOOCOMMERCE' &&
+    !!data.orden_woo_id &&
+    !!wcPublico.data?.url;
+
+  const enlaceWC =
+    mostrarBloqueWC && wcPublico.data?.url
+      ? `${wcPublico.data.url.replace(/\/+$/, '')}/wp-admin/post.php?post=${data.orden_woo_id}&action=edit`
+      : null;
 
   return (
     <>
@@ -69,8 +113,42 @@ export function LeadDetailPage() {
                     {formatFecha(data.created_at)}
                   </span>
                 </div>
+                <div>
+                  <span className="text-secondary">Origen: </span>
+                  <span className="text-primary">{data.origen}</span>
+                </div>
               </div>
+
+              {puedeReasignar && (
+                <div className="mt-4 max-w-sm">
+                  <Select
+                    label="Reasignar a"
+                    value={data.asignado_a_id ?? ''}
+                    onChange={(e) => onChangeAsignado(e.target.value)}
+                    options={opcionesAsignables}
+                    disabled={asignables.isLoading || actualizar.isPending}
+                  />
+                </div>
+              )}
             </Card>
+
+            {mostrarBloqueWC && enlaceWC && (
+              <Card
+                title={`Pedido WooCommerce #${data.orden_woo_id}`}
+                description="Este lead fue importado automáticamente desde la tienda."
+              >
+                <a
+                  href={enlaceWC}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir pedido en WooCommerce
+                </a>
+              </Card>
+            )}
+
             <Card title="Editar lead">
               <LeadForm lead={data} />
             </Card>

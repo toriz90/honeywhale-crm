@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
@@ -11,6 +12,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { MailModule } from './mail/mail.module';
+import { WoocommerceModule } from './woocommerce/woocommerce.module';
 import { typeOrmOptions } from './config/typeorm.config';
 
 @Module({
@@ -22,6 +24,7 @@ import { typeOrmOptions } from './config/typeorm.config';
         limit: 60,
       },
     ]),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -43,6 +46,7 @@ import { typeOrmOptions } from './config/typeorm.config';
     DashboardModule,
     ConfiguracionModule,
     MailModule,
+    WoocommerceModule,
   ],
   controllers: [AppController],
   providers: [

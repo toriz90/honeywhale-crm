@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from './usuario.entity';
+import { Rol } from '../common/enums/rol.enum';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
@@ -45,6 +46,18 @@ export class UsuariosService {
     return this.usuariosRepo.find({
       order: { created_at: 'DESC' },
     });
+  }
+
+  async findAsignables(roles?: Rol[]): Promise<Usuario[]> {
+    const qb = this.usuariosRepo
+      .createQueryBuilder('u')
+      .where('u.activo = :activo', { activo: true });
+
+    if (roles && roles.length > 0) {
+      qb.andWhere('u.rol IN (:...roles)', { roles });
+    }
+
+    return qb.orderBy('u.nombre', 'ASC').getMany();
   }
 
   async findOne(id: string): Promise<Usuario> {
