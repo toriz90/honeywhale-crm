@@ -63,6 +63,12 @@ export class UsuariosService {
       .getOne();
   }
 
+  async findByEmailActivo(email: string): Promise<Usuario | null> {
+    return this.usuariosRepo.findOne({
+      where: { email, activo: true },
+    });
+  }
+
   async update(id: string, dto: UpdateUsuarioDto): Promise<Usuario> {
     const usuario = await this.findOne(id);
 
