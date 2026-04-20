@@ -20,6 +20,12 @@ export interface ConfiguracionUI {
   tieneGoogleClientSecret: boolean;
   google_redirect_uri: string | null;
   google_habilitado: boolean;
+  woocommerce_habilitado: boolean;
+  woocommerce_url: string | null;
+  woocommerce_consumer_key: string | null;
+  tieneWoocommerceConsumerSecret: boolean;
+  tieneWoocommerceWebhookSecret: boolean;
+  woocommerce_ultima_sync: Date | null;
   updated_at: Date;
   updated_by_id: string | null;
 }
@@ -36,6 +42,15 @@ export interface ConfiguracionDescifrada {
   google_client_secret: string | null;
   google_redirect_uri: string | null;
   google_habilitado: boolean;
+}
+
+export interface CredencialesWoocommerce {
+  habilitado: boolean;
+  url: string | null;
+  consumerKey: string | null;
+  consumerSecret: string | null;
+  webhookSecret: string | null;
+  ultimaSync: Date | null;
 }
 
 @Injectable()
@@ -56,6 +71,7 @@ export class ConfiguracionService {
         smtp_port: 587,
         smtp_secure: false,
         google_habilitado: false,
+        woocommerce_habilitado: false,
       });
       config = await this.repo.save(nueva);
     }
@@ -77,9 +93,51 @@ export class ConfiguracionService {
       tieneGoogleClientSecret: !!c.google_client_secret_cifrado,
       google_redirect_uri: c.google_redirect_uri,
       google_habilitado: c.google_habilitado,
+      woocommerce_habilitado: c.woocommerce_habilitado,
+      woocommerce_url: c.woocommerce_url,
+      woocommerce_consumer_key: c.woocommerce_consumer_key,
+      tieneWoocommerceConsumerSecret: !!c.woocommerce_consumer_secret_cifrado,
+      tieneWoocommerceWebhookSecret: !!c.woocommerce_webhook_secret_cifrado,
+      woocommerce_ultima_sync: c.woocommerce_ultima_sync,
       updated_at: c.updated_at,
       updated_by_id: c.updated_by_id,
     };
+  }
+
+  async obtenerCredencialesWoocommerce(): Promise<CredencialesWoocommerce> {
+    const c = await this.obtener();
+    let consumerSecret: string | null = null;
+    let webhookSecret: string | null = null;
+    try {
+      consumerSecret = c.woocommerce_consumer_secret_cifrado
+        ? this.cryptoService.decrypt(c.woocommerce_consumer_secret_cifrado)
+        : null;
+    } catch {
+      this.logger.warn(
+        'No se pudo descifrar woocommerce_consumer_secret_cifrado',
+      );
+    }
+    try {
+      webhookSecret = c.woocommerce_webhook_secret_cifrado
+        ? this.cryptoService.decrypt(c.woocommerce_webhook_secret_cifrado)
+        : null;
+    } catch {
+      this.logger.warn(
+        'No se pudo descifrar woocommerce_webhook_secret_cifrado',
+      );
+    }
+    return {
+      habilitado: c.woocommerce_habilitado,
+      url: c.woocommerce_url,
+      consumerKey: c.woocommerce_consumer_key,
+      consumerSecret,
+      webhookSecret,
+      ultimaSync: c.woocommerce_ultima_sync,
+    };
+  }
+
+  async actualizarUltimaSyncWoocommerce(): Promise<void> {
+    await this.repo.update({ id: 1 }, { woocommerce_ultima_sync: new Date() });
   }
 
   async obtenerDescifrada(): Promise<ConfiguracionDescifrada> {
@@ -135,6 +193,31 @@ export class ConfiguracionService {
     ) {
       c.google_client_secret_cifrado = this.cryptoService.encrypt(
         dto.google_client_secret,
+      );
+    }
+
+    if (dto.woocommerce_habilitado !== undefined)
+      c.woocommerce_habilitado = dto.woocommerce_habilitado;
+    if (dto.woocommerce_url !== undefined)
+      c.woocommerce_url = dto.woocommerce_url;
+    if (dto.woocommerce_consumer_key !== undefined)
+      c.woocommerce_consumer_key = dto.woocommerce_consumer_key;
+
+    if (
+      dto.woocommerce_consumer_secret !== undefined &&
+      dto.woocommerce_consumer_secret.length > 0
+    ) {
+      c.woocommerce_consumer_secret_cifrado = this.cryptoService.encrypt(
+        dto.woocommerce_consumer_secret,
+      );
+    }
+
+    if (
+      dto.woocommerce_webhook_secret !== undefined &&
+      dto.woocommerce_webhook_secret.length > 0
+    ) {
+      c.woocommerce_webhook_secret_cifrado = this.cryptoService.encrypt(
+        dto.woocommerce_webhook_secret,
       );
     }
 

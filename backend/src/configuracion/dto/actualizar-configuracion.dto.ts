@@ -73,4 +73,30 @@ export class ActualizarConfiguracionDto {
   @IsOptional()
   @IsBoolean()
   google_habilitado?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  woocommerce_habilitado?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null && v !== '')
+  @IsUrl({}, { message: 'woocommerce_url debe ser una URL válida' })
+  @MaxLength(255)
+  woocommerce_url?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
+  @MaxLength(255)
+  woocommerce_consumer_key?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  woocommerce_consumer_secret?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  woocommerce_webhook_secret?: string;
 }

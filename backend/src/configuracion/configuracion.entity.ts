@@ -46,6 +46,24 @@ export class Configuracion {
   @Column({ type: 'boolean', default: false })
   google_habilitado!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  woocommerce_habilitado!: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  woocommerce_url!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  woocommerce_consumer_key!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  woocommerce_consumer_secret_cifrado!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  woocommerce_webhook_secret_cifrado!: string | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  woocommerce_ultima_sync!: Date | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updated_at!: Date;
 
