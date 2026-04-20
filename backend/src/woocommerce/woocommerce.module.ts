@@ -6,6 +6,7 @@ import { ConfiguracionModule } from '../configuracion/configuracion.module';
 import { WoocommerceService } from './woocommerce.service';
 import { WoocommerceSyncService } from './woocommerce-sync.service';
 import { WoocommerceController } from './woocommerce.controller';
+import { WoocommerceWebhookController } from './woocommerce-webhook.controller';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { WoocommerceController } from './woocommerce.controller';
     TypeOrmModule.forFeature([Lead]),
     ConfiguracionModule,
   ],
-  controllers: [WoocommerceController],
+  controllers: [WoocommerceController, WoocommerceWebhookController],
   providers: [WoocommerceService, WoocommerceSyncService],
   exports: [WoocommerceService],
 })
