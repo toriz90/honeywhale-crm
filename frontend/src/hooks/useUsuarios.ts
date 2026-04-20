@@ -7,11 +7,24 @@ import {
 } from '@/types/usuario';
 
 const QK = 'usuarios';
+const QK_ASIGNABLES = 'usuarios-asignables';
 
 export function useUsuarios() {
   return useQuery({
     queryKey: [QK],
     queryFn: () => unwrap<Usuario[]>(api.get('/usuarios')),
+  });
+}
+
+export function useUsuariosAsignables(roles: string[] = ['AGENTE', 'SUPERVISOR']) {
+  const rolParam = roles.join(',');
+  return useQuery({
+    queryKey: [QK_ASIGNABLES, rolParam],
+    queryFn: () =>
+      unwrap<Usuario[]>(
+        api.get('/usuarios/asignables', { params: { rol: rolParam } }),
+      ),
+    staleTime: 60 * 1000,
   });
 }
 

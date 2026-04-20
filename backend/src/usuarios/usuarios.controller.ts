@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
@@ -34,6 +35,22 @@ export class UsuariosController {
   @Get()
   findAll() {
     return this.usuariosService.findAll();
+  }
+
+  // Lista ligera de usuarios activos filtrable por rol, accesible también
+  // para SUPERVISOR (necesario para asignar/reasignar leads desde la UI).
+  @Get('asignables')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  findAsignables(@Query('rol') rolParam?: string) {
+    const roles = rolParam
+      ? rolParam
+          .split(',')
+          .map((r) => r.trim().toUpperCase())
+          .filter((r): r is Rol =>
+            (Object.values(Rol) as string[]).includes(r),
+          )
+      : undefined;
+    return this.usuariosService.findAsignables(roles);
   }
 
   @Get(':id')

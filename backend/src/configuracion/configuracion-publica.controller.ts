@@ -18,4 +18,19 @@ export class ConfiguracionPublicaController {
       !!c.google_redirect_uri;
     return { habilitado };
   }
+
+  // Endpoint público: sólo expone si WooCommerce está habilitado y la URL
+  // base (sin credenciales) para que el frontend pueda armar enlaces al
+  // backoffice de WordPress desde la ficha del lead.
+  @Get('woocommerce-publico')
+  async woocommercePublico(): Promise<{
+    habilitado: boolean;
+    url: string | null;
+  }> {
+    const creds = await this.service.obtenerCredencialesWoocommerce();
+    return {
+      habilitado: creds.habilitado,
+      url: creds.url,
+    };
+  }
 }

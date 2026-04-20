@@ -28,6 +28,8 @@ export const ETAPA_LABELS: Record<EtapaLead, string> = {
   PERDIDO: 'Perdido',
 };
 
+export type OrigenLead = 'MANUAL' | 'WOOCOMMERCE' | 'IMPORTADO';
+
 export interface Lead {
   id: string;
   nombre: string;
@@ -37,6 +39,7 @@ export interface Lead {
   monto: string;
   moneda: Moneda;
   orden_woo_id: string | null;
+  origen: OrigenLead;
   etapa: EtapaLead;
   motivo_abandono: string | null;
   asignado_a_id: string | null;
@@ -56,7 +59,7 @@ export interface CreateLeadPayload {
   orden_woo_id?: string;
   etapa?: EtapaLead;
   motivo_abandono?: string;
-  asignado_a_id?: string;
+  asignado_a_id?: string | null;
   notas?: string;
 }
 
