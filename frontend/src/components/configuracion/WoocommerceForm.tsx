@@ -3,16 +3,17 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { PlugZap, RefreshCw } from 'lucide-react';
+import { PlugZap, RefreshCw, Wrench } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Switch } from '@/components/ui/Switch';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { ConfiguracionUI, WoocommerceSyncResult } from '@/types/configuracion';
+import { ConfiguracionUI } from '@/types/configuracion';
 import {
   useActualizarConfiguracion,
   useProbarWoocommerce,
+  useRepararLeadsWoocommerce,
   useSyncWoocommerce,
 } from '@/hooks/useConfiguracion';
 import { mensajeDeError } from '@/lib/api';
@@ -37,12 +38,24 @@ interface WoocommerceFormProps {
   configuracion: ConfiguracionUI;
 }
 
+type ResumenResultado = {
+  titulo: string;
+  total: number;
+  exito: number;
+  labelExito: string;
+  labelNeutral: string;
+  neutral: number;
+  errores: { pedidoId?: string | number; mensaje: string }[];
+};
+
 export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
   const actualizar = useActualizarConfiguracion();
   const probar = useProbarWoocommerce();
   const sync = useSyncWoocommerce();
-  const [resultadoSync, setResultadoSync] =
-    useState<WoocommerceSyncResult | null>(null);
+  const reparar = useRepararLeadsWoocommerce();
+  const [resultadoModal, setResultadoModal] = useState<ResumenResultado | null>(
+    null,
+  );
   const [guiaAbierta, setGuiaAbierta] = useState(false);
 
   const {
@@ -116,9 +129,34 @@ export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
   const sincronizar = async () => {
     try {
       const res = await sync.mutateAsync();
-      setResultadoSync(res);
+      setResultadoModal({
+        titulo: 'Resultado de la sincronización',
+        total: res.total,
+        exito: res.creados,
+        labelExito: 'Creados',
+        neutral: res.ignorados,
+        labelNeutral: 'Ignorados',
+        errores: res.errores,
+      });
     } catch (err) {
       toast.error(mensajeDeError(err, 'Error al sincronizar pedidos'));
+    }
+  };
+
+  const repararLeads = async () => {
+    try {
+      const res = await reparar.mutateAsync();
+      setResultadoModal({
+        titulo: 'Resultado de la reparación',
+        total: res.total,
+        exito: res.reparados,
+        labelExito: 'Reparados',
+        neutral: res.sinCambios,
+        labelNeutral: 'Sin cambios',
+        errores: res.errores,
+      });
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'Error al reparar leads'));
     }
   };
 
@@ -235,74 +273,94 @@ export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
             )}
           </div>
 
-          <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={probarConexion}
-              loading={probar.isPending}
-            >
-              <PlugZap className="h-4 w-4" />
-              Probar conexión
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={sincronizar}
-              loading={sync.isPending}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Forzar sincronización ahora
-            </Button>
-            <Button type="submit" loading={isSubmitting}>
-              Guardar cambios
-            </Button>
+          <div className="md:col-span-2 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={probarConexion}
+                loading={probar.isPending}
+              >
+                <PlugZap className="h-4 w-4" />
+                Probar conexión
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={sincronizar}
+                loading={sync.isPending}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Forzar sincronización ahora
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={repararLeads}
+                loading={reparar.isPending}
+              >
+                <Wrench className="h-4 w-4" />
+                Reparar datos de leads existentes
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                Guardar cambios
+              </Button>
+            </div>
+            <p className="text-right text-xs text-secondary">
+              Reconsulta los pedidos en WooCommerce y actualiza
+              nombre/producto/teléfono de los leads existentes. Útil después de
+              cambiar el mapeo. No toca etapa ni notas del agente.
+            </p>
           </div>
         </form>
       </Card>
 
       <Modal
-        open={!!resultadoSync}
-        onClose={() => setResultadoSync(null)}
-        title="Resultado de la sincronización"
+        open={!!resultadoModal}
+        onClose={() => setResultadoModal(null)}
+        title={resultadoModal?.titulo ?? 'Resultado'}
         size="md"
         footer={
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setResultadoSync(null)}>
+            <Button size="sm" onClick={() => setResultadoModal(null)}>
               Cerrar
             </Button>
           </div>
         }
       >
-        {resultadoSync && (
+        {resultadoModal && (
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-md border border-border bg-elev-2 p-3 text-center">
                 <div className="text-xs text-secondary">Total revisados</div>
                 <div className="mt-1 text-lg font-semibold text-primary">
-                  {resultadoSync.total}
+                  {resultadoModal.total}
                 </div>
               </div>
               <div className="rounded-md border border-border bg-elev-2 p-3 text-center">
-                <div className="text-xs text-secondary">Creados</div>
+                <div className="text-xs text-secondary">
+                  {resultadoModal.labelExito}
+                </div>
                 <div className="mt-1 text-lg font-semibold text-accent">
-                  {resultadoSync.creados}
+                  {resultadoModal.exito}
                 </div>
               </div>
               <div className="rounded-md border border-border bg-elev-2 p-3 text-center">
-                <div className="text-xs text-secondary">Ignorados</div>
+                <div className="text-xs text-secondary">
+                  {resultadoModal.labelNeutral}
+                </div>
                 <div className="mt-1 text-lg font-semibold text-primary">
-                  {resultadoSync.ignorados}
+                  {resultadoModal.neutral}
                 </div>
               </div>
             </div>
-            {resultadoSync.errores.length > 0 && (
+            {resultadoModal.errores.length > 0 && (
               <div>
                 <div className="mb-1 text-xs text-danger">
-                  Errores ({resultadoSync.errores.length}):
+                  Errores ({resultadoModal.errores.length}):
                 </div>
                 <ul className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border bg-elev-2 p-2 text-xs text-secondary">
-                  {resultadoSync.errores.map((e, i) => (
+                  {resultadoModal.errores.map((e, i) => (
                     <li key={i}>
                       {e.pedidoId ? `#${e.pedidoId}: ` : ''}
                       {e.mensaje}

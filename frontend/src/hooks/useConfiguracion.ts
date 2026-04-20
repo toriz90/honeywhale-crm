@@ -64,6 +64,27 @@ export function useSyncWoocommerce() {
   });
 }
 
+export interface WoocommerceReparacionResult {
+  total: number;
+  reparados: number;
+  sinCambios: number;
+  errores: { leadId?: string; pedidoId?: string; mensaje: string }[];
+}
+
+export function useRepararLeadsWoocommerce() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap<WoocommerceReparacionResult>(
+        api.post('/woocommerce/reparar-leads-woocommerce'),
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
+    },
+  });
+}
+
 export interface WoocommercePublico {
   habilitado: boolean;
   url: string | null;

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { HttpService } from '@nestjs/axios';
 import { AxiosRequestConfig } from 'axios';
 import { firstValueFrom } from 'rxjs';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { Lead } from '../leads/lead.entity';
 import { EtapaLead } from '../leads/enums/etapa-lead.enum';
 import { Origen } from '../leads/enums/origen.enum';
@@ -14,6 +14,16 @@ import {
 
 const ESTADOS_ABANDONADOS = ['pending', 'failed', 'cancelled', 'on-hold'];
 const PRODUCTO_MAX_LEN = 500;
+const NOMBRE_PLACEHOLDER = 'Sin nombre';
+const PRODUCTO_PLACEHOLDER = 'Pedido sin productos';
+const TELEFONO_PLACEHOLDER = 'Sin teléfono';
+
+interface ClienteWC {
+  first_name?: string;
+  last_name?: string;
+}
+
+type CacheClientes = Map<number, ClienteWC | null>;
 
 export interface ResultadoImportacion {
   creado: boolean;
@@ -34,6 +44,7 @@ export interface PedidoWooCommerce {
   total?: string;
   currency?: string;
   date_created?: string;
+  customer_id?: number;
   billing?: {
     first_name?: string;
     last_name?: string;
@@ -41,6 +52,14 @@ export interface PedidoWooCommerce {
     phone?: string;
   };
   line_items?: Array<{ quantity: number; name: string }>;
+  meta_data?: Array<{ key?: string; value?: unknown }>;
+}
+
+export interface ResultadoReparacion {
+  total: number;
+  reparados: number;
+  sinCambios: number;
+  errores: { leadId?: string; pedidoId?: string; mensaje: string }[];
 }
 
 @Injectable()
@@ -130,6 +149,10 @@ export class WoocommerceService {
   async importarPedido(
     pedidoWC: PedidoWooCommerce,
     origen: Origen = Origen.WOOCOMMERCE,
+    opciones?: {
+      creds?: CredencialesWoocommerce;
+      cacheClientes?: CacheClientes;
+    },
   ): Promise<ResultadoImportacion> {
     if (!pedidoWC || pedidoWC.id === undefined || pedidoWC.id === null) {
       return { creado: false, motivo: 'pedido_sin_id' };
@@ -143,24 +166,22 @@ export class WoocommerceService {
       return { creado: false, motivo: 'ya_existe', leadId: existente.id };
     }
 
+    const creds =
+      opciones?.creds ??
+      (await this.configuracionService.obtenerCredencialesWoocommerce());
+
     const billing = pedidoWC.billing ?? {};
-    const nombre = `${billing.first_name ?? ''} ${billing.last_name ?? ''}`
-      .trim();
-    const items = pedidoWC.line_items ?? [];
-    let producto = items
-      .map((i) => `${i.quantity}x ${i.name}`)
-      .join(', ')
-      .trim();
-    if (!producto) {
-      producto = 'Pedido sin productos';
-    }
-    if (producto.length > PRODUCTO_MAX_LEN) {
-      producto = `${producto.slice(0, PRODUCTO_MAX_LEN - 1)}…`;
-    }
+    const nombre = await this.resolverNombreCliente(
+      pedidoWC,
+      creds,
+      opciones?.cacheClientes,
+    );
+    const producto = this.resolverProductos(pedidoWC);
 
     const monto = pedidoWC.total ? parseFloat(pedidoWC.total) : 0;
     const montoSeguro = Number.isFinite(monto) ? monto : 0;
 
+    const items = pedidoWC.line_items ?? [];
     const notasInternas = JSON.stringify({
       estado_wc: pedidoWC.status,
       fecha_pedido: pedidoWC.date_created,
@@ -169,9 +190,10 @@ export class WoocommerceService {
     });
 
     const nuevo = this.leadRepo.create({
-      nombre: nombre.length > 0 ? nombre.slice(0, 150) : 'Sin nombre',
+      nombre: nombre.slice(0, 150),
       email: billing.email ?? null,
-      telefono: (billing.phone ?? '').toString().slice(0, 30) || 'Sin teléfono',
+      telefono:
+        (billing.phone ?? '').toString().slice(0, 30) || TELEFONO_PLACEHOLDER,
       producto,
       monto: montoSeguro.toFixed(2),
       orden_woo_id: idPedido,
@@ -203,6 +225,14 @@ export class WoocommerceService {
       errores: [],
     };
 
+    const creds =
+      await this.configuracionService.obtenerCredencialesWoocommerce();
+    const faltante = this.validarCredenciales(creds);
+    if (faltante) {
+      resultado.errores.push({ mensaje: faltante });
+      return resultado;
+    }
+
     let pedidos: PedidoWooCommerce[] = [];
     try {
       pedidos = await this.obtenerPedidosAbandonados(desde ?? null);
@@ -218,9 +248,16 @@ export class WoocommerceService {
       `Sincronización WooCommerce: ${pedidos.length} pedidos candidatos`,
     );
 
+    // Cache scoped to this sync run: evita que varios pedidos del mismo
+    // customer_id disparen múltiples GET /customers/:id.
+    const cacheClientes: CacheClientes = new Map();
+
     for (const pedido of pedidos) {
       try {
-        const r = await this.importarPedido(pedido);
+        const r = await this.importarPedido(pedido, Origen.WOOCOMMERCE, {
+          creds,
+          cacheClientes,
+        });
         if (r.creado) resultado.creados += 1;
         else resultado.ignorados += 1;
       } catch (err) {
@@ -234,6 +271,111 @@ export class WoocommerceService {
     await this.configuracionService.actualizarUltimaSyncWoocommerce();
     this.logger.log(
       `Sync terminado: ${resultado.creados} creados, ${resultado.ignorados} ignorados, ${resultado.errores.length} errores`,
+    );
+    return resultado;
+  }
+
+  async repararLeadsExistentes(): Promise<ResultadoReparacion> {
+    const creds =
+      await this.configuracionService.obtenerCredencialesWoocommerce();
+    const faltante = this.validarCredenciales(creds);
+    if (faltante) {
+      throw new Error(faltante);
+    }
+
+    const leads = await this.leadRepo.find({
+      where: {
+        origen: Origen.WOOCOMMERCE,
+        orden_woo_id: Not(IsNull()),
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    const resultado: ResultadoReparacion = {
+      total: leads.length,
+      reparados: 0,
+      sinCambios: 0,
+      errores: [],
+    };
+
+    this.logger.log(`Reparando ${leads.length} leads WooCommerce...`);
+
+    const cacheClientes: CacheClientes = new Map();
+    const baseUrl = `${this.limpiarUrlBase(creds.url!)}/wp-json/wc/v3/orders`;
+
+    for (const lead of leads) {
+      if (!lead.orden_woo_id) continue;
+      try {
+        const res = await firstValueFrom(
+          this.httpService.get<PedidoWooCommerce>(
+            `${baseUrl}/${lead.orden_woo_id}`,
+            this.configAxios(creds, 10_000),
+          ),
+        );
+        const pedido = res.data;
+
+        const nombreNuevo = await this.resolverNombreCliente(
+          pedido,
+          creds,
+          cacheClientes,
+        );
+        const productoNuevo = this.resolverProductos(pedido);
+        const emailNuevo = pedido.billing?.email ?? null;
+        const telefonoNuevo =
+          (pedido.billing?.phone ?? '').toString().slice(0, 30) ||
+          TELEFONO_PLACEHOLDER;
+
+        let cambios = false;
+
+        if (
+          nombreNuevo !== lead.nombre &&
+          (lead.nombre === NOMBRE_PLACEHOLDER ||
+            nombreNuevo !== NOMBRE_PLACEHOLDER)
+        ) {
+          lead.nombre = nombreNuevo.slice(0, 150);
+          cambios = true;
+        }
+
+        if (
+          productoNuevo !== lead.producto &&
+          (lead.producto === PRODUCTO_PLACEHOLDER ||
+            productoNuevo !== PRODUCTO_PLACEHOLDER)
+        ) {
+          lead.producto = productoNuevo;
+          cambios = true;
+        }
+
+        if (emailNuevo !== lead.email) {
+          lead.email = emailNuevo;
+          cambios = true;
+        }
+
+        if (
+          telefonoNuevo !== lead.telefono &&
+          (lead.telefono === TELEFONO_PLACEHOLDER ||
+            telefonoNuevo !== TELEFONO_PLACEHOLDER)
+        ) {
+          lead.telefono = telefonoNuevo;
+          cambios = true;
+        }
+
+        if (cambios) {
+          await this.leadRepo.save(lead);
+          resultado.reparados += 1;
+        } else {
+          resultado.sinCambios += 1;
+        }
+      } catch (err) {
+        resultado.errores.push({
+          leadId: lead.id,
+          pedidoId: lead.orden_woo_id ?? undefined,
+          mensaje: this.mensajeError(err),
+        });
+      }
+    }
+
+    this.logger.log(
+      `Reparación terminada: ${resultado.reparados} reparados, ${resultado.sinCambios} sin cambios, ${resultado.errores.length} errores`,
     );
     return resultado;
   }
@@ -275,5 +417,175 @@ export class WoocommerceService {
     if (err instanceof Error) return err.message;
     if (typeof err === 'string') return err;
     return 'Error desconocido';
+  }
+
+  private tituloCase(s: string): string {
+    return s
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+
+  private async resolverNombreCliente(
+    pedidoWC: PedidoWooCommerce,
+    creds: CredencialesWoocommerce,
+    cacheClientes?: CacheClientes,
+  ): Promise<string> {
+    const billing = pedidoWC.billing ?? {};
+    const nombreBilling = `${billing.first_name ?? ''} ${billing.last_name ?? ''}`.trim();
+    if (nombreBilling.length > 0) {
+      return nombreBilling;
+    }
+
+    const meta = pedidoWC.meta_data ?? [];
+    const claves = ['_billing_full_name', '_shipping_full_name'];
+    for (const clave of claves) {
+      const entry = meta.find(
+        (m) =>
+          m?.key === clave &&
+          typeof m?.value === 'string' &&
+          (m.value as string).trim().length > 0,
+      );
+      if (entry) {
+        return this.tituloCase((entry.value as string).trim());
+      }
+    }
+
+    if (pedidoWC.customer_id && pedidoWC.customer_id > 0 && creds.url) {
+      const customerId = pedidoWC.customer_id;
+      let cliente: ClienteWC | null | undefined;
+      if (cacheClientes?.has(customerId)) {
+        cliente = cacheClientes.get(customerId);
+      } else {
+        cliente = await this.obtenerCliente(customerId, creds);
+        cacheClientes?.set(customerId, cliente);
+      }
+      if (cliente) {
+        const n = `${cliente.first_name ?? ''} ${cliente.last_name ?? ''}`.trim();
+        if (n.length > 0) return n;
+      }
+    }
+
+    if (billing.email) {
+      const local = billing.email.split('@')[0] ?? '';
+      const spaced = local.replace(/[._-]+/g, ' ').trim();
+      if (spaced.length > 0) {
+        return this.tituloCase(spaced);
+      }
+    }
+
+    return NOMBRE_PLACEHOLDER;
+  }
+
+  private async obtenerCliente(
+    customerId: number,
+    creds: CredencialesWoocommerce,
+  ): Promise<ClienteWC | null> {
+    try {
+      const url = `${this.limpiarUrlBase(creds.url!)}/wp-json/wc/v3/customers/${customerId}`;
+      const res = await firstValueFrom(
+        this.httpService.get<ClienteWC>(url, this.configAxios(creds, 5_000)),
+      );
+      if (res.data && typeof res.data === 'object') {
+        return {
+          first_name: res.data.first_name,
+          last_name: res.data.last_name,
+        };
+      }
+      return null;
+    } catch (err) {
+      this.logger.debug(
+        `GET /customers/${customerId} falló: ${this.mensajeError(err)}`,
+      );
+      return null;
+    }
+  }
+
+  private resolverProductos(pedidoWC: PedidoWooCommerce): string {
+    const items = pedidoWC.line_items ?? [];
+    if (items.length > 0) {
+      let p = items
+        .map((i) => `${i.quantity}x ${i.name}`)
+        .join(', ')
+        .trim();
+      if (p.length > PRODUCTO_MAX_LEN) {
+        p = `${p.slice(0, PRODUCTO_MAX_LEN - 1)}…`;
+      }
+      return p || PRODUCTO_PLACEHOLDER;
+    }
+
+    const meta = pedidoWC.meta_data ?? [];
+    const clavesPlugin = [
+      '_cart_abandonment_items',
+      '_wc_cart_abandoned_items',
+      'cartflows_step_order_data',
+    ];
+    for (const clave of clavesPlugin) {
+      const entry = meta.find((m) => m?.key === clave);
+      if (!entry) continue;
+      const resumen = this.resumirItemsMeta(entry.value);
+      if (resumen) {
+        return resumen.length > PRODUCTO_MAX_LEN
+          ? `${resumen.slice(0, PRODUCTO_MAX_LEN - 1)}…`
+          : resumen;
+      }
+    }
+
+    return PRODUCTO_PLACEHOLDER;
+  }
+
+  private resumirItemsMeta(valor: unknown): string | null {
+    if (valor === null || valor === undefined) return null;
+
+    let data: unknown = valor;
+    if (typeof valor === 'string') {
+      const s = valor.trim();
+      if (s.length === 0) return null;
+      if (s[0] !== '{' && s[0] !== '[') return null;
+      try {
+        data = JSON.parse(s);
+      } catch {
+        return null;
+      }
+    }
+
+    const extraerItem = (it: unknown): string | null => {
+      if (!it || typeof it !== 'object') return null;
+      const obj = it as Record<string, unknown>;
+      const name =
+        (typeof obj.name === 'string' && obj.name) ||
+        (typeof obj.title === 'string' && obj.title) ||
+        (typeof obj.product_name === 'string' && obj.product_name) ||
+        null;
+      if (!name) return null;
+      const qtyRaw = obj.quantity ?? obj.qty ?? 1;
+      const qty =
+        typeof qtyRaw === 'number'
+          ? qtyRaw
+          : typeof qtyRaw === 'string'
+            ? Number(qtyRaw) || 1
+            : 1;
+      return `${qty}x ${name}`;
+    };
+
+    if (Array.isArray(data)) {
+      const partes = data.map(extraerItem).filter((x): x is string => !!x);
+      return partes.length > 0 ? partes.join(', ') : null;
+    }
+
+    if (data && typeof data === 'object') {
+      const obj = data as Record<string, unknown>;
+      const subcollection = obj.items ?? obj.products ?? obj.line_items;
+      if (Array.isArray(subcollection)) {
+        return this.resumirItemsMeta(subcollection);
+      }
+      // Objeto-item suelto.
+      const soloItem = extraerItem(obj);
+      if (soloItem) return soloItem;
+    }
+
+    return null;
   }
 }

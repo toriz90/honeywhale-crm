@@ -27,6 +27,12 @@ export class WoocommerceController {
     return this.woocommerceService.sincronizar(null);
   }
 
+  @Post('reparar-leads-woocommerce')
+  @HttpCode(HttpStatus.OK)
+  repararLeads() {
+    return this.woocommerceService.repararLeadsExistentes();
+  }
+
   @Get('estado')
   async estado() {
     const creds =
