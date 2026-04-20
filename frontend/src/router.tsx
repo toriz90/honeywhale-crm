@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { Rol } from '@/types/auth';
 import { Layout } from '@/components/layout/Layout';
 import { LoginPage } from '@/pages/LoginPage';
+import { GoogleCallbackPage } from '@/pages/GoogleCallbackPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LeadsPage } from '@/pages/LeadsPage';
 import { LeadDetailPage } from '@/pages/LeadDetailPage';
@@ -61,6 +62,7 @@ export function AppRouter() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
       <Route
         element={
           <RequiereAuth>

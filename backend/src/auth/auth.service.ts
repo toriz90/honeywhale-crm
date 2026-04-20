@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -7,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { Usuario } from '../usuarios/usuario.entity';
+import { GooglePerfilValidado } from './strategies/google.strategy';
 
 export interface TokenPair {
   accessToken: string;
@@ -24,6 +26,7 @@ interface JwtBasePayload {
   sub: string;
   email: string;
   rol: string;
+  nombre: string;
 }
 
 @Injectable()
@@ -48,6 +51,16 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<TokenPair> {
     const usuario = await this.validateUser(email, password);
+    return this.generarTokens(usuario);
+  }
+
+  async loginConGoogle(perfil: GooglePerfilValidado): Promise<TokenPair> {
+    const usuario = await this.usuariosService.findByEmailActivo(perfil.email);
+    if (!usuario) {
+      throw new ForbiddenException(
+        'Este correo de Google no está autorizado en el CRM. Contacta al administrador para que te dé de alta.',
+      );
+    }
     return this.generarTokens(usuario);
   }
 
@@ -82,6 +95,7 @@ export class AuthService {
       sub: usuario.id,
       email: usuario.email,
       rol: usuario.rol,
+      nombre: usuario.nombre,
     };
 
     const accessSecret = this.configService.get<string>('JWT_SECRET');

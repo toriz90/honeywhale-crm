@@ -65,6 +65,18 @@ honeywhale-crm/
 - created_at, updated_at — timestamps
 - deleted_at — timestamp nullable (soft delete)
 
+## Autenticación con Google (OAuth 2.0)
+- Las credenciales (google_client_id, google_client_secret_cifrado, google_redirect_uri, google_habilitado) se guardan cifradas en la tabla `configuracion` (singleton id=1) y se leen vía `ConfiguracionService.obtenerDescifrada()`.
+- La estrategia `GoogleStrategy` se registra dinámicamente mediante un factory provider en `AuthModule`. Si `google_habilitado=false` o faltan credenciales, la estrategia no se registra (warning en logs) y el backend sigue arrancando.
+- Endpoints:
+  - GET `/api/auth/google` — inicia el flujo. Si está deshabilitado, responde 404.
+  - GET `/api/auth/google/callback` — recibe el code de Google, valida email contra tabla `usuarios`, genera tokens y redirige a `${CORS_ORIGIN}/auth/google/callback?accessToken=...&refreshToken=...`.
+  - GET `/api/configuracion/google-habilitado` — **público** (sin JWT). Expone sólo `{ habilitado: boolean }`.
+- Sólo se permite login con Google a usuarios ya dados de alta (`usuarios.activo=true`). Si el email no existe, se redirige a `/login?error=google_no_autorizado`.
+- El frontend (`GoogleCallbackPage`) decodifica el JWT para extraer `{ sub, email, rol, nombre }` y guardar la sesión en `useAuthStore`.
+- El Redirect URI autorizado en Google Cloud debe ser exactamente `https://crm.victortoriz.cc/api/auth/google/callback`.
+- El Client Secret sólo vive en DB cifrado; nunca se expone al frontend.
+
 ## Roles y Permisos
 - ADMIN: acceso total, gestiona usuarios, ve todos los leads.
 - SUPERVISOR: ve todos los leads, reasigna, no gestiona usuarios.
