@@ -18,6 +18,7 @@ import {
   JwtUserPayload,
 } from '../common/decorators/current-user.decorator';
 import { ActualizarConfiguracionDto } from './dto/actualizar-configuracion.dto';
+import { ActualizarMarcaDto } from './dto/actualizar-marca.dto';
 import { EnviarCorreoPruebaDto } from './dto/enviar-correo-prueba.dto';
 
 @Controller('configuracion')
@@ -37,6 +38,17 @@ export class ConfiguracionController {
     @CurrentUser() usuario: JwtUserPayload,
   ) {
     return this.service.actualizar(dto, usuario);
+  }
+
+  // El bloque "Marca" lo puede tocar también SUPERVISOR — el ADMIN se reserva
+  // para datos sensibles (SMTP, OAuth, WC). Override del @Roles del @Controller.
+  @Patch('marca')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  actualizarMarca(
+    @Body() dto: ActualizarMarcaDto,
+    @CurrentUser() usuario: JwtUserPayload,
+  ) {
+    return this.service.actualizarMarca(dto, usuario);
   }
 
   @Post('probar-smtp')

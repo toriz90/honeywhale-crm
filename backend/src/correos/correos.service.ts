@@ -253,14 +253,18 @@ export class CorreosService {
   }
 
   private async armarContextoConConfig(lead: Lead, agente: Usuario) {
-    // Por ahora la "marca" sale de la propia configuración SMTP (smtp_from_nombre)
-    // y de la URL de WooCommerce. En un prompt futuro podemos darle a esto su
-    // propio bloque "marca" en la tabla configuracion.
-    const credsWc = await this.configuracionService.obtenerCredencialesWoocommerce();
-    const ui = await this.configuracionService.obtenerParaUI();
+    // El bloque "Marca" se administra desde Configuracion → Marca/Empresa.
+    // De ahí salen nombre, teléfono, email de contacto y logo. La URL de
+    // la tienda sigue viniendo de WooCommerce porque es la URL canónica.
+    const marca = await this.configuracionService.obtenerMarca();
+    const credsWc =
+      await this.configuracionService.obtenerCredencialesWoocommerce();
     const config: ConfigMarca = {
-      nombreTienda: ui.smtp_from_nombre || 'HoneyWhale',
+      nombreTienda: marca.nombreTienda,
+      telefonoTienda: marca.telefonoTienda,
+      emailContacto: marca.emailContacto,
       linkTienda: credsWc.url || '',
+      logo: marca.logoUrl || undefined,
     };
     return this.renderizado.armarContexto(lead, agente, config);
   }

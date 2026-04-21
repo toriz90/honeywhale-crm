@@ -182,15 +182,18 @@ export class PlantillasService {
 
   /**
    * Arma la configuración de marca derivada de la tabla `configuracion`.
-   * Compartida con CorreosService (que la consume vía PlantillasService).
+   * Compartida con el preview de plantillas y con CorreosService.
    */
   async armarConfigMarca(): Promise<ConfigMarca> {
+    const marca = await this.configuracionService.obtenerMarca();
     const credsWc =
       await this.configuracionService.obtenerCredencialesWoocommerce();
-    const ui = await this.configuracionService.obtenerParaUI();
     return {
-      nombreTienda: ui.smtp_from_nombre || 'HoneyWhale',
+      nombreTienda: marca.nombreTienda,
+      telefonoTienda: marca.telefonoTienda,
+      emailContacto: marca.emailContacto,
       linkTienda: credsWc.url || '',
+      logo: marca.logoUrl || undefined,
     };
   }
 
