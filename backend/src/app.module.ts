@@ -13,6 +13,8 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { MailModule } from './mail/mail.module';
 import { WoocommerceModule } from './woocommerce/woocommerce.module';
+import { PlantillasModule } from './plantillas/plantillas.module';
+import { CorreosModule } from './correos/correos.module';
 import { typeOrmOptions } from './config/typeorm.config';
 
 @Module({
@@ -47,6 +49,8 @@ import { typeOrmOptions } from './config/typeorm.config';
     ConfiguracionModule,
     MailModule,
     WoocommerceModule,
+    PlantillasModule,
+    CorreosModule,
   ],
   controllers: [AppController],
   providers: [
