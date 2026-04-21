@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
@@ -112,20 +112,16 @@ function ItemHistorial({ correo }: { correo: CorreoEnviado }) {
 }
 
 function CuerpoCorreoIframe({ html }: { html: string }) {
-  const ref = useRef<HTMLIFrameElement>(null);
-  useEffect(() => {
-    const doc = ref.current?.contentDocument;
-    if (!doc) return;
-    doc.open();
-    doc.write(html || '<p style="color:#888;font-family:system-ui;">(vacío)</p>');
-    doc.close();
-  }, [html]);
+  // srcDoc declarativo — mismo patrón que el preview del PanelEnvioCorreo,
+  // así el iframe se pinta correctamente la primera vez que el usuario
+  // expande el item del historial (antes con doc.write quedaba en blanco).
+  const fallback = '<p style="color:#888;font-family:system-ui;">(vacío)</p>';
   return (
     <iframe
-      ref={ref}
+      srcDoc={html || fallback}
       title="Cuerpo del correo"
       sandbox=""
-      className="h-80 w-full rounded border border-border bg-white"
+      className="h-[500px] w-full rounded border border-[var(--border)] bg-white md:h-[600px]"
     />
   );
 }
