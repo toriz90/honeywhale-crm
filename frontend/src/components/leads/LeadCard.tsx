@@ -1,27 +1,29 @@
-import { DragEvent } from 'react';
+import { DragEvent, MouseEvent } from 'react';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { Lead } from '@/types/lead';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useTomarLead } from '@/hooks/useLeads';
 import { mensajeDeError } from '@/lib/api';
 import { BadgeTemperatura } from './BadgeTemperatura';
-import {
-  calcularTemperatura,
-  estiloTemperatura,
-} from '@/utils/temperatura';
+import { calcularTemperatura } from '@/utils/temperatura';
 import { cn } from '@/lib/utils';
 
 interface LeadCardProps {
   lead: Lead;
   onClick?: (lead: Lead) => void;
   onDragStart?: (e: DragEvent<HTMLDivElement>, lead: Lead) => void;
+  draggable?: boolean;
 }
 
-export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
+export function LeadCard({
+  lead,
+  onClick,
+  onDragStart,
+  draggable = true,
+}: LeadCardProps) {
   const usuario = useAuthStore((s) => s.usuario);
-  const tomar = useTomarLead();
 
   const puedeTomar =
     !!usuario &&
@@ -34,13 +36,121 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
   const temperatura = lead.fecha_pedido_wc
     ? calcularTemperatura(lead.fecha_pedido_wc)
     : null;
-  const resaltar =
-    temperatura === 'caliente' || temperatura === 'tibio'
-      ? estiloTemperatura(temperatura)
-      : null;
 
-  const onTomar = async (e: React.MouseEvent) => {
+  const esMio = !!usuario && lead.asignado_a_id === usuario.id;
+
+  // Borde de resalte sólo para CALIENTE/TIBIO. El resto usa el borde estándar.
+  const bordeResalte =
+    temperatura === 'caliente'
+      ? 'border-2 border-[#ff6b35]'
+      : temperatura === 'tibio'
+        ? 'border border-[#f57c00]'
+        : 'border border-[var(--border)]';
+
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={(e) => onDragStart?.(e, lead)}
+      onClick={() => onClick?.(lead)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Lead ${lead.nombre}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.(lead);
+        }
+      }}
+      className={cn(
+        'group relative cursor-pointer rounded-lg bg-[var(--bg-elev)] p-3 transition-all',
+        'hover:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+        draggable && 'active:cursor-grabbing',
+        bordeResalte,
+      )}
+    >
+      {/* Fila 1: badge (izq) · nombre (centro, crece) · avatar/+ (der) */}
+      <div className="mb-1.5 flex items-start gap-2">
+        {lead.fecha_pedido_wc && (
+          <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
+        )}
+        <h3
+          className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--text-primary)]"
+          title={lead.nombre}
+        >
+          {lead.nombre}
+        </h3>
+        <AvatarOTomar
+          lead={lead}
+          esMio={esMio}
+          puedeTomar={puedeTomar}
+        />
+      </div>
+
+      {/* Fila 2: producto */}
+      <p
+        className="mb-1 truncate text-xs text-[var(--text-secondary)]"
+        title={lead.producto || 'Sin productos'}
+      >
+        {lead.producto || 'Sin productos'}
+      </p>
+
+      {/* Fila 3: monto + moneda */}
+      <div className="flex items-baseline gap-1">
+        <span className="text-base font-bold text-[var(--accent)]">
+          {formatMoneda(lead.monto, lead.moneda)}
+        </span>
+        <span className="text-xs text-[var(--text-secondary)]">
+          {lead.moneda}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+interface AvatarOTomarProps {
+  lead: Lead;
+  esMio: boolean;
+  puedeTomar: boolean;
+}
+
+function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
+  const tomar = useTomarLead();
+
+  // Asignado: avatar de iniciales, NO clickeable, ring si es mío.
+  if (lead.asignadoA) {
+    return (
+      <span
+        aria-label={`Asignado a ${lead.asignadoA.nombre}${esMio ? ' (tú)' : ''}`}
+        title={lead.asignadoA.nombre}
+        className={cn(
+          'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+          esMio &&
+            'ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-elev)]',
+        )}
+        style={{ backgroundColor: colorDesdeId(lead.asignadoA.id) }}
+      >
+        {iniciales(lead.asignadoA.nombre)}
+      </span>
+    );
+  }
+
+  // Sin asignar pero el usuario no puede tomarlo: círculo decorativo.
+  if (!puedeTomar) {
+    return (
+      <span
+        aria-label="Sin asignar"
+        title="Sin asignar"
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-[var(--border)] text-[var(--text-secondary)]"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+
+  // Sin asignar + puedeTomar: botón clickeable que dispara la mutation.
+  const onTomar = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    if (tomar.isPending) return;
     try {
       await tomar.mutateAsync(lead.id);
       toast.success('Tomaste el lead');
@@ -54,94 +164,27 @@ export function LeadCard({ lead, onClick, onDragStart }: LeadCardProps) {
     }
   };
 
-  const esMio = !!usuario && lead.asignado_a_id === usuario.id;
-
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart?.(e, lead)}
-      onClick={() => onClick?.(lead)}
+    <button
+      type="button"
+      onClick={onTomar}
+      onKeyDown={(e) => e.stopPropagation()}
+      disabled={tomar.isPending}
+      aria-label="Tomar este lead"
+      title="Tomar este lead"
       className={cn(
-        'cursor-grab rounded-md border border-border bg-elev-2 p-3 text-sm transition-colors hover:border-accent/50 active:cursor-grabbing',
+        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-[var(--border)] text-[var(--text-secondary)] transition-colors',
+        'hover:border-[var(--accent)] hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
+        'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+        'disabled:cursor-wait disabled:opacity-60',
       )}
-      style={
-        resaltar
-          ? {
-              border: resaltar.border,
-              boxShadow: `0 0 0 1px ${resaltar.bg}33`,
-            }
-          : undefined
-      }
     >
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <span className="font-medium text-primary">{lead.nombre}</span>
-        <div className="flex items-center gap-1">
-          {temperatura && <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} />}
-        </div>
-      </div>
-      <div className="mb-2 truncate text-xs text-secondary">{lead.producto}</div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-accent">
-          {formatMoneda(lead.monto, lead.moneda)}
-        </span>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-secondary">{lead.moneda}</span>
-          <AvatarAgente
-            lead={lead}
-            esMio={esMio}
-            puedeTomar={puedeTomar}
-          />
-        </div>
-      </div>
-
-      {puedeTomar && (
-        <button
-          type="button"
-          onClick={onTomar}
-          disabled={tomar.isPending}
-          className="mt-2 w-full rounded-md border border-accent bg-accent/10 px-2 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent hover:text-white disabled:opacity-50"
-        >
-          {tomar.isPending ? 'Tomando...' : 'Tomar este lead'}
-        </button>
+      {tomar.isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Plus className="h-3.5 w-3.5" />
       )}
-    </div>
-  );
-}
-
-interface AvatarAgenteProps {
-  lead: Lead;
-  esMio: boolean;
-  puedeTomar: boolean;
-}
-
-function AvatarAgente({ lead, esMio, puedeTomar }: AvatarAgenteProps) {
-  if (!lead.asignadoA) {
-    return (
-      <span
-        aria-label="Sin asignar"
-        title="Sin asignar"
-        className={cn(
-          'inline-flex h-6 w-6 items-center justify-center rounded-full border border-dashed text-secondary',
-          puedeTomar ? 'border-accent/60 text-accent' : 'border-border',
-        )}
-      >
-        {puedeTomar ? <Plus className="h-3 w-3" /> : null}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-label={lead.asignadoA.nombre}
-      title={lead.asignadoA.nombre}
-      className={cn(
-        'inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white',
-        esMio && 'ring-2 ring-accent ring-offset-1 ring-offset-elev-2',
-      )}
-      style={{ backgroundColor: colorDesdeId(lead.asignadoA.id) }}
-    >
-      {iniciales(lead.asignadoA.nombre)}
-    </span>
+    </button>
   );
 }
 
