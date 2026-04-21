@@ -14,13 +14,20 @@ import { LeadKanbanMobile } from '@/components/leads/LeadKanbanMobile';
 import { LeadListMobile } from '@/components/leads/LeadListMobile';
 import { LeadForm } from '@/components/leads/LeadForm';
 import {
+  FiltrosLeads as FiltrosLeadsTabs,
+  filtroDefaultPara,
+} from '@/components/leads/FiltrosLeads';
+import { BannerCalientes } from '@/components/leads/BannerCalientes';
+import {
   useEliminarLead,
   useLeadKanban,
   useLeads,
 } from '@/hooks/useLeads';
+import { useNotificacionLeadCaliente } from '@/hooks/useNotificacionLeadCaliente';
 import {
   ETAPA_LABELS,
   EtapaLead,
+  FiltroAsignacion,
   FiltrosLeads,
   Lead,
 } from '@/types/lead';
@@ -64,8 +71,18 @@ function ToggleVista({
   );
 }
 
-export function LeadsPage() {
+interface LeadsPageProps {
+  vistaEquipo?: boolean;
+}
+
+export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
   const [vista, setVista] = useState<Vista>('kanban');
+  const usuario = useAuthStore((s) => s.usuario);
+  const puedeCrear = usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
+
+  const [filtroAsignacion, setFiltroAsignacion] = useState<FiltroAsignacion>(
+    filtroDefaultPara(usuario?.rol, vistaEquipo),
+  );
   const [filtros, setFiltros] = useState<FiltrosLeads>({
     page: 1,
     limit: 20,
@@ -75,11 +92,15 @@ export function LeadsPage() {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [borrarLead, setBorrarLead] = useState<Lead | null>(null);
-  const usuario = useAuthStore((s) => s.usuario);
-  const puedeCrear = usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
 
-  const kanban = useLeadKanban();
-  const lista = useLeads(filtros);
+  useNotificacionLeadCaliente();
+
+  const filtroEfectivo: FiltroAsignacion = vistaEquipo
+    ? 'equipo'
+    : filtroAsignacion;
+
+  const kanban = useLeadKanban(filtroEfectivo);
+  const lista = useLeads({ ...filtros, filtro: filtroEfectivo });
   const eliminar = useEliminarLead();
 
   const abrirNuevo = () => {
@@ -106,7 +127,7 @@ export function LeadsPage() {
   return (
     <>
       <Topbar
-        titulo="Leads"
+        titulo={vistaEquipo ? 'Equipo' : 'Leads'}
         acciones={
           <>
             <ToggleVista vista={vista} onChange={setVista} />
@@ -123,6 +144,14 @@ export function LeadsPage() {
       <div className="flex items-center gap-2 border-b border-border bg-elev px-4 py-2 md:hidden">
         <ToggleVista vista={vista} onChange={setVista} />
       </div>
+
+      <BannerCalientes />
+      {!vistaEquipo && (
+        <FiltrosLeadsTabs
+          valor={filtroAsignacion}
+          onChange={setFiltroAsignacion}
+        />
+      )}
 
       {vista === 'kanban' ? (
         <>

@@ -14,6 +14,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { GoogleCallbackPage } from '@/pages/GoogleCallbackPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LeadsPage } from '@/pages/LeadsPage';
+import { EquipoPage } from '@/pages/EquipoPage';
 import { LeadDetailPage } from '@/pages/LeadDetailPage';
 import { UsuariosPage } from '@/pages/UsuariosPage';
 import { ConfiguracionPage } from '@/pages/ConfiguracionPage';
@@ -73,6 +74,14 @@ export function AppRouter() {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/leads" element={<LeadsPage />} />
+        <Route
+          path="/equipo"
+          element={
+            <RequiereRol roles={['ADMIN', 'SUPERVISOR', 'AGENTE']}>
+              <EquipoPage />
+            </RequiereRol>
+          }
+        />
         <Route path="/leads/:id" element={<LeadDetailPage />} />
         <Route
           path="/archivados"

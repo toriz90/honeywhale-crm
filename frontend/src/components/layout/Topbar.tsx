@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Menu } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { SonidoToggle } from './SonidoToggle';
 import { useSidebar } from './sidebarContext';
 
 interface TopbarProps {
@@ -32,6 +33,7 @@ export function Topbar({ titulo, acciones, accionesMobile }: TopbarProps) {
           {accionesMobile}
         </div>
         <div className="hidden items-center gap-2 md:flex">{acciones}</div>
+        <SonidoToggle />
         <ThemeToggle />
       </div>
     </header>

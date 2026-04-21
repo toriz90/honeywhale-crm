@@ -48,8 +48,26 @@ export interface Lead {
   archivado?: boolean;
   fecha_archivado?: string | null;
   fecha_cambio_etapa?: string | null;
+  fecha_asignacion?: string | null;
+  fecha_pedido_wc?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type FiltroAsignacion = 'mios' | 'sin_asignar' | 'equipo' | 'todos';
+
+export interface BucketTemperatura {
+  count: number;
+  montoTotal: number;
+}
+
+export interface StatsTemperatura {
+  calientes: BucketTemperatura;
+  tibios: BucketTemperatura;
+  templados: BucketTemperatura;
+  enfriandose: BucketTemperatura;
+  frios: BucketTemperatura;
+  congelados: BucketTemperatura;
 }
 
 export interface CreateLeadPayload {
@@ -71,6 +89,7 @@ export type UpdateLeadPayload = Partial<CreateLeadPayload>;
 export interface FiltrosLeads {
   etapa?: EtapaLead;
   asignado_a_id?: string;
+  filtro?: FiltroAsignacion;
   search?: string;
   page?: number;
   limit?: number;

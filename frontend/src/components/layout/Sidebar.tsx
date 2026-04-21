@@ -8,6 +8,7 @@ import {
   Waves,
   Archive,
   X,
+  UsersRound,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,12 @@ const grupos: Grupo[] = [
     titulo: 'Gestión',
     items: [
       { to: '/leads', label: 'Leads', Icono: Kanban },
+      {
+        to: '/equipo',
+        label: 'Equipo',
+        Icono: UsersRound,
+        roles: ['AGENTE'],
+      },
       {
         to: '/archivados',
         label: 'Archivados',
