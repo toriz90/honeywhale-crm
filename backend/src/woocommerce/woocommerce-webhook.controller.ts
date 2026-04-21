@@ -51,19 +51,22 @@ export class WoocommerceWebhookController {
     @Body() body: PedidoWooCommerce,
   ) {
     try {
-      const relevantes = Object.entries(req.headers || {}).filter(([k]) =>
-        k.toLowerCase().startsWith('x-wc') ||
-        k.toLowerCase().startsWith('x-webhook') ||
-        k.toLowerCase() === 'user-agent' ||
-        k.toLowerCase() === 'content-type' ||
-        k.toLowerCase() === 'content-length',
+      const contentType = this.leerHeader(req, ['content-type']);
+      const tieneHeadersWC = Object.keys(req.headers || {}).some((k) =>
+        k.toLowerCase().startsWith('x-wc-webhook'),
       );
-      this.logger.log(
-        `Webhook incoming headers relevantes: ${JSON.stringify(Object.fromEntries(relevantes))}`,
-      );
-      this.logger.log(
-        `rawBody disponible: ${req.rawBody ? `SI (${req.rawBody.length} bytes)` : 'NO'}`,
-      );
+
+      const esPing =
+        (!contentType ||
+          !contentType.toLowerCase().includes('application/json')) &&
+        !tieneHeadersWC;
+
+      if (esPing) {
+        this.logger.log(
+          `Ping de verificación recibido de WooCommerce (content-type=${contentType || 'ninguno'}) — respondiendo 200`,
+        );
+        return { ping: true, recibido: true };
+      }
 
       const signature = this.leerHeader(req, [
         'x-wc-webhook-signature',
