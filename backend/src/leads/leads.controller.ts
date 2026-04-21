@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { LeadsService } from './leads.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -25,11 +26,22 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CambiarEtapaDto } from './dto/cambiar-etapa.dto';
 import { AsignarLeadDto } from './dto/asignar-lead.dto';
-import { FiltrarLeadsDto } from './dto/filtrar-leads.dto';
+import {
+  FiltrarLeadsDto,
+  FiltroAsignacion,
+  FILTROS_ASIGNACION_PERMITIDOS,
+} from './dto/filtrar-leads.dto';
 import {
   ArchivarMesDto,
   ListarArchivadosQueryDto,
 } from './dto/archivar-mes.dto';
+
+function parseFiltro(raw?: string): FiltroAsignacion | undefined {
+  if (!raw) return undefined;
+  return (FILTROS_ASIGNACION_PERMITIDOS as readonly string[]).includes(raw)
+    ? (raw as FiltroAsignacion)
+    : undefined;
+}
 
 @Controller('leads')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -55,8 +67,16 @@ export class LeadsController {
   }
 
   @Get('kanban')
-  findKanban(@CurrentUser() usuario: JwtUserPayload) {
-    return this.leadsService.findKanban(usuario);
+  findKanban(
+    @CurrentUser() usuario: JwtUserPayload,
+    @Query('filtro') filtroRaw?: string,
+  ) {
+    return this.leadsService.findKanban(usuario, parseFiltro(filtroRaw));
+  }
+
+  @Get('stats-temperatura')
+  statsTemperatura(@CurrentUser() usuario: JwtUserPayload) {
+    return this.leadsService.statsTemperatura(usuario);
   }
 
   @Get('archivados')
@@ -123,6 +143,19 @@ export class LeadsController {
     @CurrentUser() usuario: JwtUserPayload,
   ) {
     return this.leadsService.asignar(id, dto, usuario);
+  }
+
+  // Auto-asignación race-safe. Rate-limit dedicado (6 intentos/10s por usuario)
+  // para evitar abuso si un agente "mashea" el botón.
+  @Post(':id/tomar')
+  @Throttle({ default: { limit: 6, ttl: 10_000 } })
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.AGENTE)
+  @HttpCode(HttpStatus.OK)
+  tomar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() usuario: JwtUserPayload,
+  ) {
+    return this.leadsService.tomar(id, usuario);
   }
 
   @Delete(':id')

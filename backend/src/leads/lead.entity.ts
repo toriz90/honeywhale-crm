@@ -80,6 +80,13 @@ export class Lead {
   @Column({ name: 'fecha_cambio_etapa', type: 'datetime', nullable: true })
   fecha_cambio_etapa!: Date | null;
 
+  @Column({ name: 'fecha_asignacion', type: 'datetime', nullable: true })
+  fecha_asignacion!: Date | null;
+
+  @Index('IDX_leads_fecha_pedido_wc')
+  @Column({ name: 'fecha_pedido_wc', type: 'datetime', nullable: true })
+  fecha_pedido_wc!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   created_at!: Date;
 
