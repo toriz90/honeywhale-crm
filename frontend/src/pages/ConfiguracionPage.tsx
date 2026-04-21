@@ -12,7 +12,7 @@ export function ConfiguracionPage() {
   return (
     <>
       <Topbar titulo="Configuración" />
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
         {isLoading || !data ? (
           <>
             <Skeleton className="h-64" />

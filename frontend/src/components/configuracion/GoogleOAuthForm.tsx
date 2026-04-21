@@ -123,7 +123,7 @@ export function GoogleOAuthForm({ configuracion }: GoogleOAuthFormProps) {
           />
         </div>
         <div className="md:col-span-2 flex justify-end">
-          <Button type="submit" loading={isSubmitting}>
+          <Button type="submit" loading={isSubmitting} fullWidthOnMobile>
             Guardar cambios
           </Button>
         </div>

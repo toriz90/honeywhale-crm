@@ -119,7 +119,7 @@ export function ReporteMensual() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-primary">
             Reporte mensual
@@ -128,8 +128,8 @@ export function ReporteMensual() {
             Recuperaciones y pérdidas del mes y los 6 meses recientes.
           </p>
         </div>
-        <div className="flex items-end gap-3">
-          <div className="w-32">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="md:w-32">
             <Select
               label="Año"
               value={String(year)}
@@ -140,7 +140,7 @@ export function ReporteMensual() {
               }))}
             />
           </div>
-          <div className="w-40">
+          <div className="md:w-40">
             <Select
               label="Mes"
               value={String(month)}
@@ -152,6 +152,7 @@ export function ReporteMensual() {
             variant="secondary"
             onClick={descargar}
             loading={exportar.isPending}
+            fullWidthOnMobile
           >
             <Download className="h-4 w-4" />
             Descargar Excel
@@ -159,7 +160,7 @@ export function ReporteMensual() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {metricas.isLoading || !metricas.data ? (
           <>
             <Skeleton className="h-28" />
@@ -205,9 +206,9 @@ export function ReporteMensual() {
 
       <Card title="Últimos 6 meses" description="Recuperados vs. perdidos">
         {serie.isLoading || !serie.data ? (
-          <Skeleton className="h-64" />
+          <Skeleton className="h-60 md:h-80" />
         ) : (
-          <div className="h-64 w-full">
+          <div className="h-60 w-full md:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={serieData}>
                 <CartesianGrid
@@ -241,63 +242,107 @@ export function ReporteMensual() {
             Sin actividad de agentes en este mes.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-secondary">
-                <tr>
-                  <Th onClick={() => toggleSort('nombre')} activo={sortBy === 'nombre'} asc={sortAsc}>
-                    Agente
-                  </Th>
-                  <Th
-                    className="text-right"
-                    onClick={() => toggleSort('recuperados')}
-                    activo={sortBy === 'recuperados'}
-                    asc={sortAsc}
-                  >
-                    Recuperados
-                  </Th>
-                  <Th
-                    className="text-right"
-                    onClick={() => toggleSort('perdidos')}
-                    activo={sortBy === 'perdidos'}
-                    asc={sortAsc}
-                  >
-                    Perdidos
-                  </Th>
-                  <Th
-                    className="text-right"
-                    onClick={() => toggleSort('conversion')}
-                    activo={sortBy === 'conversion'}
-                    asc={sortAsc}
-                  >
-                    % Conversión
-                  </Th>
-                </tr>
-              </thead>
-              <tbody>
-                {agentesOrdenados.map((a) => (
-                  <tr key={a.usuarioId} className="border-t border-border">
-                    <td className="py-2 text-primary">{a.nombre}</td>
-                    <td className="py-2 text-right text-secondary">
-                      {a.recuperados.cantidad}{' '}
-                      <span className="text-xs text-secondary/70">
-                        ({formatMoneda(a.recuperados.monto)})
-                      </span>
-                    </td>
-                    <td className="py-2 text-right text-secondary">
-                      {a.perdidos.cantidad}{' '}
-                      <span className="text-xs text-secondary/70">
-                        ({formatMoneda(a.perdidos.monto)})
-                      </span>
-                    </td>
-                    <td className="py-2 text-right text-accent">
+          <>
+            <div className="flex flex-col gap-2 md:hidden">
+              {agentesOrdenados.map((a) => (
+                <div
+                  key={a.usuarioId}
+                  className="rounded-md border border-border bg-elev-2 p-3"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-primary">
+                      {a.nombre}
+                    </span>
+                    <span className="text-sm font-semibold text-accent">
                       {a.conversionPct.toFixed(1)}%
-                    </td>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="text-[10px] uppercase text-secondary">
+                        Recuperados
+                      </div>
+                      <div className="text-primary">
+                        {a.recuperados.cantidad}{' '}
+                        <span className="text-secondary/70">
+                          ({formatMoneda(a.recuperados.monto)})
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase text-secondary">
+                        Perdidos
+                      </div>
+                      <div className="text-primary">
+                        {a.perdidos.cantidad}{' '}
+                        <span className="text-secondary/70">
+                          ({formatMoneda(a.perdidos.monto)})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-secondary">
+                  <tr>
+                    <Th onClick={() => toggleSort('nombre')} activo={sortBy === 'nombre'} asc={sortAsc}>
+                      Agente
+                    </Th>
+                    <Th
+                      className="text-right"
+                      onClick={() => toggleSort('recuperados')}
+                      activo={sortBy === 'recuperados'}
+                      asc={sortAsc}
+                    >
+                      Recuperados
+                    </Th>
+                    <Th
+                      className="text-right"
+                      onClick={() => toggleSort('perdidos')}
+                      activo={sortBy === 'perdidos'}
+                      asc={sortAsc}
+                    >
+                      Perdidos
+                    </Th>
+                    <Th
+                      className="text-right"
+                      onClick={() => toggleSort('conversion')}
+                      activo={sortBy === 'conversion'}
+                      asc={sortAsc}
+                    >
+                      % Conversión
+                    </Th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {agentesOrdenados.map((a) => (
+                    <tr key={a.usuarioId} className="border-t border-border">
+                      <td className="py-2 text-primary">{a.nombre}</td>
+                      <td className="py-2 text-right text-secondary">
+                        {a.recuperados.cantidad}{' '}
+                        <span className="text-xs text-secondary/70">
+                          ({formatMoneda(a.recuperados.monto)})
+                        </span>
+                      </td>
+                      <td className="py-2 text-right text-secondary">
+                        {a.perdidos.cantidad}{' '}
+                        <span className="text-xs text-secondary/70">
+                          ({formatMoneda(a.perdidos.monto)})
+                        </span>
+                      </td>
+                      <td className="py-2 text-right text-accent">
+                        {a.conversionPct.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
     </div>

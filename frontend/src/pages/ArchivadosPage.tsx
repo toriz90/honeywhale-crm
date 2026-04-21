@@ -70,44 +70,112 @@ export function ArchivadosPage() {
   return (
     <>
       <Topbar titulo="Archivados" />
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-36">
-            <Select
-              label="Año"
-              value={year === '' ? '' : String(year)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setYear(v === '' ? '' : Number(v));
-                setPage(1);
-              }}
-              options={[
-                { value: '', label: 'Todos' },
-                ...añosDisponibles.map((y) => ({
-                  value: String(y),
-                  label: String(y),
-                })),
-              ]}
-            />
-          </div>
-          <div className="w-44">
-            <Select
-              label="Mes"
-              value={month === '' ? '' : String(month)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setMonth(v === '' ? '' : Number(v));
-                setPage(1);
-              }}
-              options={[{ value: '', label: 'Todos' }, ...MESES]}
-            />
-          </div>
-          <div className="ml-auto text-sm text-secondary">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+        <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[auto_auto_1fr]">
+          <Select
+            label="Año"
+            value={year === '' ? '' : String(year)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setYear(v === '' ? '' : Number(v));
+              setPage(1);
+            }}
+            options={[
+              { value: '', label: 'Todos' },
+              ...añosDisponibles.map((y) => ({
+                value: String(y),
+                label: String(y),
+              })),
+            ]}
+          />
+          <Select
+            label="Mes"
+            value={month === '' ? '' : String(month)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setMonth(v === '' ? '' : Number(v));
+              setPage(1);
+            }}
+            options={[{ value: '', label: 'Todos' }, ...MESES]}
+          />
+          <div className="text-sm text-secondary md:text-right">
             {data ? `${data.total} leads archivados` : ''}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="flex flex-col gap-3 md:hidden">
+          {isLoading || !data ? (
+            <Skeleton className="h-24" />
+          ) : data.data.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-secondary">
+              No hay leads archivados con esos filtros.
+            </div>
+          ) : (
+            data.data.map((lead) => (
+              <div
+                key={lead.id}
+                className="rounded-md border border-border bg-elev p-4"
+              >
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <div className="text-base font-semibold text-primary">
+                      {lead.nombre}
+                    </div>
+                    <div className="text-xs text-secondary">
+                      {lead.email ?? '—'}
+                    </div>
+                  </div>
+                  <Badge
+                    tono={lead.etapa === 'RECUPERADO' ? 'success' : 'danger'}
+                  >
+                    {lead.etapa === 'RECUPERADO' ? 'Recuperado' : 'Perdido'}
+                  </Badge>
+                </div>
+                <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-[10px] uppercase text-secondary">
+                      Monto
+                    </div>
+                    <div className="text-sm font-semibold text-accent">
+                      {formatMoneda(lead.monto, lead.moneda)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-secondary">
+                      Agente
+                    </div>
+                    <div className="text-sm text-primary">
+                      {lead.asignadoA?.nombre ?? '—'}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-[10px] uppercase text-secondary">
+                      Cambio etapa
+                    </div>
+                    <div className="text-sm text-primary">
+                      {lead.fecha_cambio_etapa
+                        ? formatFecha(lead.fecha_cambio_etapa)
+                        : '—'}
+                    </div>
+                  </div>
+                </div>
+                {puedeDesarchivar && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setADesarchivar(lead)}
+                    fullWidthOnMobile
+                  >
+                    <ArchiveRestore className="h-4 w-4" />
+                    Desarchivar
+                  </Button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-hidden rounded-md border border-border md:block">
           <table className="w-full text-sm">
             <thead className="bg-elev-2 text-left text-xs uppercase text-secondary">
               <tr>
@@ -184,7 +252,7 @@ export function ArchivadosPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-between text-sm text-secondary">
+          <div className="flex flex-col items-stretch justify-between gap-2 text-sm text-secondary md:flex-row md:items-center">
             <span>
               Página {data.page} de {data.totalPages} · {data.total} leads
             </span>
@@ -194,6 +262,7 @@ export function ArchivadosPage() {
                 size="sm"
                 disabled={data.page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                fullWidthOnMobile
               >
                 Anterior
               </Button>
@@ -202,6 +271,7 @@ export function ArchivadosPage() {
                 size="sm"
                 disabled={data.page >= data.totalPages}
                 onClick={() => setPage((p) => p + 1)}
+                fullWidthOnMobile
               >
                 Siguiente
               </Button>
