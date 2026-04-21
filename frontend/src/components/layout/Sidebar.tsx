@@ -9,6 +9,7 @@ import {
   Archive,
   X,
   UsersRound,
+  Mail,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,12 @@ const grupos: Grupo[] = [
   {
     titulo: 'Sistema',
     items: [
+      {
+        to: '/plantillas',
+        label: 'Plantillas',
+        Icono: Mail,
+        roles: ['ADMIN', 'SUPERVISOR'],
+      },
       {
         to: '/configuracion',
         label: 'Configuración',

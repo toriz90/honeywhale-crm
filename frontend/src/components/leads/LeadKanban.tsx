@@ -8,9 +8,10 @@ import { mensajeDeError } from '@/lib/api';
 interface LeadKanbanProps {
   data: LeadKanbanTipo;
   onClickLead?: (lead: Lead) => void;
+  onEnviarCorreo?: (lead: Lead) => void;
 }
 
-export function LeadKanban({ data, onClickLead }: LeadKanbanProps) {
+export function LeadKanban({ data, onClickLead, onEnviarCorreo }: LeadKanbanProps) {
   const cambiarEtapa = useCambiarEtapa();
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, lead: Lead) => {
@@ -37,6 +38,7 @@ export function LeadKanban({ data, onClickLead }: LeadKanbanProps) {
           onDropLead={onDrop}
           onClickLead={onClickLead}
           onDragStartLead={onDragStart}
+          onEnviarCorreo={onEnviarCorreo}
         />
       ))}
     </div>

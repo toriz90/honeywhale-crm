@@ -18,6 +18,7 @@ import {
   filtroDefaultPara,
 } from '@/components/leads/FiltrosLeads';
 import { BannerCalientes } from '@/components/leads/BannerCalientes';
+import { PanelEnvioCorreo } from '@/components/correos/PanelEnvioCorreo';
 import {
   useEliminarLead,
   useLeadKanban,
@@ -92,6 +93,7 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [borrarLead, setBorrarLead] = useState<Lead | null>(null);
+  const [correoLead, setCorreoLead] = useState<Lead | null>(null);
 
   useNotificacionLeadCaliente();
 
@@ -163,7 +165,11 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
                 ))}
               </div>
             ) : (
-              <LeadKanbanMobile data={kanban.data} onClickLead={abrirEditar} />
+              <LeadKanbanMobile
+                data={kanban.data}
+                onClickLead={abrirEditar}
+                onEnviarCorreo={setCorreoLead}
+              />
             )}
           </div>
           <div className="hidden flex-1 overflow-hidden md:block">
@@ -174,7 +180,11 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
                 ))}
               </div>
             ) : (
-              <LeadKanban data={kanban.data} onClickLead={abrirEditar} />
+              <LeadKanban
+                data={kanban.data}
+                onClickLead={abrirEditar}
+                onEnviarCorreo={setCorreoLead}
+              />
             )}
           </div>
         </>
@@ -323,6 +333,12 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
         loading={eliminar.isPending}
         onConfirm={confirmarBorrar}
         onCancel={() => setBorrarLead(null)}
+      />
+
+      <PanelEnvioCorreo
+        lead={correoLead}
+        isOpen={!!correoLead}
+        onClose={() => setCorreoLead(null)}
       />
     </>
   );

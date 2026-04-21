@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { Topbar } from '@/components/layout/Topbar';
 import { Card } from '@/components/ui/Card';
@@ -15,6 +16,8 @@ import { ETAPA_LABELS, EtapaLead } from '@/types/lead';
 import { formatFecha, formatMoneda } from '@/lib/utils';
 import { mensajeDeError } from '@/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { PanelEnvioCorreo } from '@/components/correos/PanelEnvioCorreo';
+import { HistorialCorreosLead } from '@/components/correos/HistorialCorreosLead';
 
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +29,7 @@ export function LeadDetailPage() {
   const usuario = useAuthStore((s) => s.usuario);
   const puedeReasignar =
     usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const opcionesAsignables = [
     { value: '', label: 'Sin asignar' },
@@ -141,6 +145,16 @@ export function LeadDetailPage() {
               )}
             </Card>
 
+            <Button
+              onClick={() => setPanelOpen(true)}
+              fullWidthOnMobile
+              disabled={!data.email}
+              title={!data.email ? 'El lead no tiene email registrado' : undefined}
+            >
+              <Mail className="h-4 w-4" />
+              Enviar correo de recuperación
+            </Button>
+
             {mostrarBloqueWC && enlaceWC && (
               <Card
                 title={`Pedido WooCommerce #${data.orden_woo_id}`}
@@ -161,9 +175,19 @@ export function LeadDetailPage() {
             <Card title="Editar lead">
               <LeadForm lead={data} />
             </Card>
+
+            <Card title="Historial de correos">
+              <HistorialCorreosLead leadId={data.id} />
+            </Card>
           </>
         )}
       </div>
+
+      <PanelEnvioCorreo
+        lead={data ?? null}
+        isOpen={panelOpen}
+        onClose={() => setPanelOpen(false)}
+      />
     </>
   );
 }
