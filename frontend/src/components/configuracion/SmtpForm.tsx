@@ -172,17 +172,18 @@ export function SmtpForm({ configuracion }: SmtpFormProps) {
             {...register('smtp_from_nombre')}
             error={errors.smtp_from_nombre?.message}
           />
-          <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2">
+          <div className="md:col-span-2 flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
             <BotonProbarSmtp />
             <Button
               type="button"
               variant="secondary"
               onClick={() => setModalPrueba(true)}
+              fullWidthOnMobile
             >
               <Send className="h-4 w-4" />
               Enviar correo de prueba
             </Button>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" loading={isSubmitting} fullWidthOnMobile>
               Guardar cambios
             </Button>
           </div>

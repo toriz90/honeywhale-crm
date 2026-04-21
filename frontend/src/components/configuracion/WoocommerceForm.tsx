@@ -274,12 +274,13 @@ export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
           </div>
 
           <div className="md:col-span-2 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
               <Button
                 type="button"
                 variant="secondary"
                 onClick={probarConexion}
                 loading={probar.isPending}
+                fullWidthOnMobile
               >
                 <PlugZap className="h-4 w-4" />
                 Probar conexión
@@ -289,6 +290,7 @@ export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
                 variant="secondary"
                 onClick={sincronizar}
                 loading={sync.isPending}
+                fullWidthOnMobile
               >
                 <RefreshCw className="h-4 w-4" />
                 Forzar sincronización ahora
@@ -298,11 +300,12 @@ export function WoocommerceForm({ configuracion }: WoocommerceFormProps) {
                 variant="secondary"
                 onClick={repararLeads}
                 loading={reparar.isPending}
+                fullWidthOnMobile
               >
                 <Wrench className="h-4 w-4" />
                 Reparar datos de leads existentes
               </Button>
-              <Button type="submit" loading={isSubmitting}>
+              <Button type="submit" loading={isSubmitting} fullWidthOnMobile>
                 Guardar cambios
               </Button>
             </div>

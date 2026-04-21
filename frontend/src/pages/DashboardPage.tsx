@@ -25,16 +25,16 @@ export function DashboardPage() {
   return (
     <>
       <Topbar titulo="Dashboard" />
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6 lg:px-8">
         {isLoading || !data ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24" />
             ))}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 titulo="Total leads"
                 valor={data.totalLeads}

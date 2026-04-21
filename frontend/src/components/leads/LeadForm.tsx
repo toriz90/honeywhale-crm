@@ -289,7 +289,7 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
         )}
       </div>
       <div className="md:col-span-2 flex justify-end">
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isSubmitting} fullWidthOnMobile>
           {lead ? 'Guardar cambios' : 'Crear lead'}
         </Button>
       </div>

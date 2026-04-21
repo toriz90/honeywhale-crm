@@ -21,7 +21,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={taId}
           className={cn(
-            'min-h-[100px] w-full rounded-md border border-border bg-elev px-3 py-2 text-sm text-primary placeholder:text-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+            'min-h-[100px] w-full rounded-md border border-border bg-elev px-3 py-2 text-base text-primary placeholder:text-secondary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent md:text-sm',
             error && 'border-danger',
             className,
           )}

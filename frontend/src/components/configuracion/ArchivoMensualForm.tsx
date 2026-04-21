@@ -68,7 +68,7 @@ export function ArchivoMensualForm() {
                 : 'Nunca'}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-secondary">
             Mes a archivar:{' '}
             <span className="font-medium text-primary">{etiqueta}</span>
@@ -77,6 +77,7 @@ export function ArchivoMensualForm() {
             variant="secondary"
             onClick={() => setOpen(true)}
             loading={archivar.isPending}
+            fullWidthOnMobile
           >
             <Archive className="h-4 w-4" />
             Archivar mes anterior ahora

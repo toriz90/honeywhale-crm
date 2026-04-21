@@ -69,8 +69,17 @@ export function LeadDetailPage() {
             Volver
           </Button>
         }
+        accionesMobile={
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Volver"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-secondary hover:bg-elev-2 hover:text-primary"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        }
       />
-      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
         {isLoading || !data ? (
           <Skeleton className="h-40" />
         ) : (
@@ -120,7 +129,7 @@ export function LeadDetailPage() {
               </div>
 
               {puedeReasignar && (
-                <div className="mt-4 max-w-sm">
+                <div className="mt-4 w-full md:max-w-sm">
                   <Select
                     label="Reasignar a"
                     value={data.asignado_a_id ?? ''}
