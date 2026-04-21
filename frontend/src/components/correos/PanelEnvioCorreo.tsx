@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Mail, Save, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -440,23 +435,19 @@ function OpcionPlantilla({
 }
 
 function PreviewIframe({ html }: { html: string }) {
-  const ref = useRef<HTMLIFrameElement>(null);
-  useEffect(() => {
-    const doc = ref.current?.contentDocument;
-    if (!doc) return;
-    doc.open();
-    doc.write(
-      html ||
-        '<div style="font-family:system-ui;color:#888;padding:20px;">(sin contenido aún)</div>',
-    );
-    doc.close();
-  }, [html]);
+  // srcDoc es declarativo: React lo re-asigna en cada render con el HTML
+  // actual y el iframe se vuelve a pintar solo. Evita el race condition que
+  // tenía el doc.open/write/close cuando el iframe se remontaba al cambiar
+  // de tab (Visual ↔ HTML) — en ese caso el effect corría antes de que
+  // contentDocument estuviera listo y el iframe se quedaba en blanco.
+  const fallback =
+    '<div style="font-family:system-ui;color:#888;padding:20px;">(sin contenido aún)</div>';
   return (
     <iframe
-      ref={ref}
+      srcDoc={html || fallback}
       title="Vista previa del correo"
       sandbox=""
-      className="h-72 w-full rounded-md border border-border bg-white"
+      className="h-[500px] w-full rounded-md border border-[var(--border)] bg-white md:h-[600px]"
     />
   );
 }
