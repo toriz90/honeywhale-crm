@@ -67,6 +67,23 @@ export function textoTemperatura(
   return `${estilo.emoji} ${estilo.label} · ${formatearEspera(minutos)}`;
 }
 
+/**
+ * Versión ultra compacta del tiempo transcurrido para badges pequeños.
+ * Sin espacios, sin palabras: "6min", "21h", "3d".
+ */
+export function tiempoCompacto(
+  fechaPedido: Date | string | null | undefined,
+): string {
+  const d = toDate(fechaPedido);
+  if (!d) return '—';
+  const min = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60_000));
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 60) return `${h}h`;
+  const dias = Math.floor(min / 1440);
+  return `${dias}d`;
+}
+
 const ESTILOS: Record<Temperatura, EstiloTemperatura> = {
   caliente: {
     bg: '#ff6b35',

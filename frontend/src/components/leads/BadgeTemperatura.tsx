@@ -3,18 +3,23 @@ import {
   calcularTemperatura,
   estiloTemperatura,
   textoTemperatura,
+  tiempoCompacto,
 } from '@/utils/temperatura';
 import { cn } from '@/lib/utils';
 
 interface BadgeTemperaturaProps {
   fechaPedido: Date | string | null | undefined;
+  /**
+   * Default true. Versión compacta = "🔥 6min".
+   * Pasa false sólo si necesitas el formato largo "🔥 CALIENTE · 6 min".
+   */
   compacto?: boolean;
   className?: string;
 }
 
 export function BadgeTemperatura({
   fechaPedido,
-  compacto,
+  compacto = true,
   className,
 }: BadgeTemperaturaProps) {
   // Tick de 60s para que un lead caliente pase a tibio sin refresh.
@@ -29,24 +34,32 @@ export function BadgeTemperatura({
 
   const t = calcularTemperatura(fechaPedido);
   const e = estiloTemperatura(t);
-  const texto = textoTemperatura(t, fechaPedido);
+  const tooltip = textoTemperatura(t, fechaPedido);
+  const corto = tiempoCompacto(fechaPedido);
 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight',
+        'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold leading-tight',
         e.pulse && 'animate-pulse-slow',
         className,
       )}
       style={{
         background: e.bg,
         color: e.text,
-        border: e.border === 'none' ? undefined : e.border,
         opacity: e.opacity,
       }}
-      title={texto}
+      title={tooltip}
+      aria-label={tooltip}
     >
-      {compacto ? e.emoji : texto}
+      <span aria-hidden>{e.emoji}</span>
+      {compacto ? (
+        <span>{corto}</span>
+      ) : (
+        <span>
+          {e.label} · {corto}
+        </span>
+      )}
     </span>
   );
 }
