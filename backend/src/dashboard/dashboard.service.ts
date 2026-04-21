@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import * as ExcelJS from 'exceljs';
 import { Lead } from '../leads/lead.entity';
+import { Usuario } from '../usuarios/usuario.entity';
 import { Rol } from '../common/enums/rol.enum';
 import { EtapaLead } from '../leads/enums/etapa-lead.enum';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
@@ -64,6 +65,16 @@ export interface MetricasMensualesSerie {
   perdidos: MetricaEtapa;
 }
 
+export interface ActividadHoyAgente {
+  usuarioId: string;
+  nombre: string;
+  rol: string;
+  leadsTomadosHoy: number;
+  contactadosHoy: number;
+  recuperadosHoy: number;
+  perdidosHoy: number;
+}
+
 function rangoMes(year: number, month: number): { desde: Date; hasta: Date } {
   if (month < 1 || month > 12) {
     throw new BadRequestException('Mes inválido (1-12)');
@@ -87,7 +98,83 @@ export class DashboardService {
   constructor(
     @InjectRepository(Lead)
     private readonly leadsRepo: Repository<Lead>,
+    @InjectRepository(Usuario)
+    private readonly usuariosRepo: Repository<Usuario>,
   ) {}
+
+  async actividadHoy(): Promise<ActividadHoyAgente[]> {
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+
+    const usuarios = await this.usuariosRepo.find({
+      where: { activo: true },
+      order: { nombre: 'ASC' },
+    });
+    const elegibles = usuarios.filter(
+      (u) => u.rol === Rol.AGENTE || u.rol === Rol.SUPERVISOR,
+    );
+
+    if (elegibles.length === 0) return [];
+
+    const ids = elegibles.map((u) => u.id);
+
+    type Conteo = { uid: string; n: string };
+
+    // Una sola pasada por bucket: queries paralelas.
+    const [tomados, contactados, recuperados, perdidos] = await Promise.all([
+      this.leadsRepo
+        .createQueryBuilder('lead')
+        .select('lead.asignado_a_id', 'uid')
+        .addSelect('COUNT(lead.id)', 'n')
+        .where('lead.asignado_a_id IN (:...ids)', { ids })
+        .andWhere('lead.fecha_asignacion >= :desde', { desde: inicioHoy })
+        .groupBy('lead.asignado_a_id')
+        .getRawMany<Conteo>(),
+      this.contarPorEtapaHoy(EtapaLead.CONTACTADO, ids, inicioHoy),
+      this.contarPorEtapaHoy(EtapaLead.RECUPERADO, ids, inicioHoy),
+      this.contarPorEtapaHoy(EtapaLead.PERDIDO, ids, inicioHoy),
+    ]);
+
+    const sumar = (rows: Conteo[]): Map<string, number> => {
+      const m = new Map<string, number>();
+      for (const r of rows) m.set(r.uid, Number(r.n));
+      return m;
+    };
+
+    const mTomados = sumar(tomados);
+    const mContactados = sumar(contactados);
+    const mRecuperados = sumar(recuperados);
+    const mPerdidos = sumar(perdidos);
+
+    const filas: ActividadHoyAgente[] = elegibles.map((u) => ({
+      usuarioId: u.id,
+      nombre: u.nombre,
+      rol: u.rol,
+      leadsTomadosHoy: mTomados.get(u.id) ?? 0,
+      contactadosHoy: mContactados.get(u.id) ?? 0,
+      recuperadosHoy: mRecuperados.get(u.id) ?? 0,
+      perdidosHoy: mPerdidos.get(u.id) ?? 0,
+    }));
+
+    filas.sort((a, b) => b.leadsTomadosHoy - a.leadsTomadosHoy);
+    return filas;
+  }
+
+  private async contarPorEtapaHoy(
+    etapa: EtapaLead,
+    ids: string[],
+    inicioHoy: Date,
+  ): Promise<{ uid: string; n: string }[]> {
+    return this.leadsRepo
+      .createQueryBuilder('lead')
+      .select('lead.asignado_a_id', 'uid')
+      .addSelect('COUNT(lead.id)', 'n')
+      .where('lead.asignado_a_id IN (:...ids)', { ids })
+      .andWhere('lead.etapa = :etapa', { etapa })
+      .andWhere('lead.fecha_cambio_etapa >= :desde', { desde: inicioHoy })
+      .groupBy('lead.asignado_a_id')
+      .getRawMany<{ uid: string; n: string }>();
+  }
 
   async obtenerKPIs(usuario: JwtUserPayload): Promise<KpisDashboard> {
     const esSupervisorOAdmin =
