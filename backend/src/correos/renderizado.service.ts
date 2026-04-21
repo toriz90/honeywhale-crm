@@ -5,6 +5,10 @@ import { Usuario } from '../usuarios/usuario.entity';
 export interface ConfigMarca {
   nombreTienda: string;
   linkTienda: string;
+  /** Teléfono público de la tienda — fuente de {{telefono_tienda}} y del alias deprecado {{telefono_agente}}. */
+  telefonoTienda?: string;
+  /** Email público de contacto — fuente de {{email_contacto}}. */
+  emailContacto?: string;
   logo?: string;
   colorMarca?: string;
 }
@@ -29,10 +33,13 @@ export interface ContextoCorreo {
   // Agente
   nombre_agente: string;
   email_agente: string;
+  /** @deprecated Alias de {{telefono_tienda}}. Se mantiene para no romper plantillas viejas. */
   telefono_agente: string;
 
   // Marca
   nombre_tienda: string;
+  telefono_tienda: string;
+  email_contacto: string;
   logo_tienda: string;
   color_marca: string;
   firma_empresa: string;
@@ -92,6 +99,9 @@ export class RenderizadoService {
     const notas = parseNotas(lead.notas);
     const linkPago = construirLinkPago(notas, linkTienda);
 
+    const telefonoTienda = (config.telefonoTienda ?? '').trim();
+    const emailContacto = (config.emailContacto ?? '').trim();
+
     return {
       nombre: lead.nombre || '',
       email: lead.email || '',
@@ -111,9 +121,13 @@ export class RenderizadoService {
 
       nombre_agente: agente.nombre ?? '',
       email_agente: agente.email ?? '',
-      telefono_agente: '', // Usuario no tiene teléfono aún (campo nullable futuro).
+      // Alias retrocompat: {{telefono_agente}} ahora apunta al teléfono de la
+      // tienda. Plantillas viejas siguen funcionando sin cambios manuales.
+      telefono_agente: telefonoTienda,
 
       nombre_tienda: config.nombreTienda,
+      telefono_tienda: telefonoTienda,
+      email_contacto: emailContacto,
       logo_tienda: config.logo ?? '',
       color_marca: config.colorMarca ?? '#0969da',
       firma_empresa: armarFirmaEmpresa(config, agente),

@@ -64,6 +64,25 @@ export class Configuracion {
   @Column({ type: 'datetime', nullable: true })
   woocommerce_ultima_sync!: Date | null;
 
+  // === Bloque "Marca / Empresa" — datos públicos de la tienda ==========
+  @Column({ name: 'nombre_tienda', type: 'varchar', length: 120, nullable: true })
+  nombre_tienda!: string | null;
+
+  @Column({ name: 'telefono_tienda', type: 'varchar', length: 40, nullable: true })
+  telefono_tienda!: string | null;
+
+  @Column({ name: 'email_contacto', type: 'varchar', length: 255, nullable: true })
+  email_contacto!: string | null;
+
+  @Column({ name: 'direccion_tienda', type: 'varchar', length: 255, nullable: true })
+  direccion_tienda!: string | null;
+
+  @Column({ name: 'rfc_tienda', type: 'varchar', length: 20, nullable: true })
+  rfc_tienda!: string | null;
+
+  @Column({ name: 'logo_url', type: 'varchar', length: 500, nullable: true })
+  logo_url!: string | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updated_at!: Date;
 

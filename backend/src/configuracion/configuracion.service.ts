@@ -5,6 +5,7 @@ import * as nodemailer from 'nodemailer';
 import { Configuracion } from './configuracion.entity';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { ActualizarConfiguracionDto } from './dto/actualizar-configuracion.dto';
+import { ActualizarMarcaDto } from './dto/actualizar-marca.dto';
 import { JwtUserPayload } from '../common/decorators/current-user.decorator';
 
 export interface ConfiguracionUI {
@@ -26,9 +27,33 @@ export interface ConfiguracionUI {
   tieneWoocommerceConsumerSecret: boolean;
   tieneWoocommerceWebhookSecret: boolean;
   woocommerce_ultima_sync: Date | null;
+  nombre_tienda: string | null;
+  telefono_tienda: string | null;
+  email_contacto: string | null;
+  direccion_tienda: string | null;
+  rfc_tienda: string | null;
+  logo_url: string | null;
   updated_at: Date;
   updated_by_id: string | null;
 }
+
+export interface MarcaEmpresa {
+  nombreTienda: string;
+  telefonoTienda: string;
+  emailContacto: string;
+  direccionTienda: string;
+  rfcTienda: string;
+  logoUrl: string;
+}
+
+const MARCA_DEFAULT: MarcaEmpresa = {
+  nombreTienda: 'HoneyWhale',
+  telefonoTienda: '+52 55 3069 2957',
+  emailContacto: 'hola@honeywhale.com.mx',
+  direccionTienda: '',
+  rfcTienda: '',
+  logoUrl: '',
+};
 
 export interface ConfiguracionDescifrada {
   smtp_host: string | null;
@@ -99,9 +124,47 @@ export class ConfiguracionService {
       tieneWoocommerceConsumerSecret: !!c.woocommerce_consumer_secret_cifrado,
       tieneWoocommerceWebhookSecret: !!c.woocommerce_webhook_secret_cifrado,
       woocommerce_ultima_sync: c.woocommerce_ultima_sync,
+      nombre_tienda: c.nombre_tienda,
+      telefono_tienda: c.telefono_tienda,
+      email_contacto: c.email_contacto,
+      direccion_tienda: c.direccion_tienda,
+      rfc_tienda: c.rfc_tienda,
+      logo_url: c.logo_url,
       updated_at: c.updated_at,
       updated_by_id: c.updated_by_id,
     };
+  }
+
+  /**
+   * Devuelve los datos de marca con defaults aplicados — nunca retorna null.
+   * Consumido por RenderizadoService al armar el contexto de los correos.
+   */
+  async obtenerMarca(): Promise<MarcaEmpresa> {
+    const c = await this.obtener();
+    return {
+      nombreTienda: c.nombre_tienda || MARCA_DEFAULT.nombreTienda,
+      telefonoTienda: c.telefono_tienda || MARCA_DEFAULT.telefonoTienda,
+      emailContacto: c.email_contacto || MARCA_DEFAULT.emailContacto,
+      direccionTienda: c.direccion_tienda || MARCA_DEFAULT.direccionTienda,
+      rfcTienda: c.rfc_tienda || MARCA_DEFAULT.rfcTienda,
+      logoUrl: c.logo_url || MARCA_DEFAULT.logoUrl,
+    };
+  }
+
+  async actualizarMarca(
+    dto: ActualizarMarcaDto,
+    usuarioActual: JwtUserPayload,
+  ): Promise<MarcaEmpresa> {
+    const c = await this.obtener();
+    c.nombre_tienda = dto.nombreTienda.trim();
+    c.telefono_tienda = dto.telefonoTienda.trim();
+    c.email_contacto = dto.emailContacto.trim();
+    c.direccion_tienda = dto.direccionTienda?.trim() || null;
+    c.rfc_tienda = dto.rfcTienda?.trim() || null;
+    c.logo_url = dto.logoUrl?.trim() || null;
+    c.updated_by_id = usuarioActual.sub;
+    await this.repo.save(c);
+    return this.obtenerMarca();
   }
 
   async obtenerCredencialesWoocommerce(): Promise<CredencialesWoocommerce> {
