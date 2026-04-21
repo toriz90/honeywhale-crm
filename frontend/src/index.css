@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+:root[data-theme='oscuro'] {
   --bg-base: #0d1117;
   --bg-elev: #161b22;
   --bg-elev-2: #1c2128;
@@ -14,7 +15,26 @@
   --success: #3fb950;
   --warning: #d29922;
   --danger: #f85149;
+  --scrollbar-thumb-hover: #484f58;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
   color-scheme: dark;
+}
+
+:root[data-theme='claro'] {
+  --bg-base: #ffffff;
+  --bg-elev: #f6f8fa;
+  --bg-elev-2: #eaeef2;
+  --border: #d0d7de;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --accent: #0969da;
+  --accent-hover: #0860ca;
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --danger: #cf222e;
+  --scrollbar-thumb-hover: #afb8c1;
+  --shadow-card: 0 1px 2px rgba(31, 35, 40, 0.08);
+  color-scheme: light;
 }
 
 html,
@@ -30,6 +50,7 @@ body {
     Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 *::-webkit-scrollbar {
@@ -44,5 +65,5 @@ body {
   border-radius: 6px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: var(--scrollbar-thumb-hover);
 }

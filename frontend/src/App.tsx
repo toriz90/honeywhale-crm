@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AppRouter } from '@/router';
+import { useAplicarTema } from '@/hooks/useAplicarTema';
+import { useThemeStore } from '@/stores/themeStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,12 +16,15 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  useAplicarTema();
+  const tema = useThemeStore((s) => s.tema);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppRouter />
         <Toaster
-          theme="dark"
+          theme={tema === 'oscuro' ? 'dark' : 'light'}
           position="top-right"
           richColors
           toastOptions={{
