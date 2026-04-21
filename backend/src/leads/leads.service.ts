@@ -273,10 +273,11 @@ export class LeadsService {
         this.aplicarFiltroAsignacion(qb, usuarioActual, filtroAsignacion);
 
         // Ordenamiento: leads con fecha_pedido_wc más reciente primero
-        // (calientes arriba), luego updated_at como tiebreaker. Los nulos
-        // de fecha_pedido_wc se van al final.
-        qb.addOrderBy('lead.fecha_pedido_wc IS NULL', 'ASC')
-          .addOrderBy('lead.fecha_pedido_wc', 'DESC')
+        // (calientes arriba), luego updated_at como tiebreaker. En MySQL,
+        // ORDER BY ... DESC coloca los NULLs al final de forma natural,
+        // así que no hace falta un addOrderBy extra con "IS NULL" (ese patrón
+        // rompe TypeORM porque addOrderBy resuelve el string como columna).
+        qb.orderBy('lead.fecha_pedido_wc', 'DESC')
           .addOrderBy('lead.updated_at', 'DESC')
           .take(LIMITE_KANBAN_POR_ETAPA);
         resultado[etapa] = await qb.getMany();
@@ -289,9 +290,12 @@ export class LeadsService {
   async tomar(id: string, usuarioActual: JwtUserPayload): Promise<Lead> {
     // UPDATE condicional race-safe: solo asigna si el lead sigue sin dueño
     // y no está archivado. Validamos affected para detectar colisiones.
+    // Usamos .update('leads') (tabla raw) en lugar de .update(Lead) para
+    // evitar cualquier lookup por metadata — operamos directo sobre los
+    // nombres de columna de BD.
     const result = await this.leadsRepo
       .createQueryBuilder()
-      .update(Lead)
+      .update('leads')
       .set({
         asignado_a_id: usuarioActual.sub,
         fecha_asignacion: () => 'NOW()',
