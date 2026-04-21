@@ -82,3 +82,7 @@ frontend/vite.config.js
 # Backups de scripts de reparacion
 *.bak
 *.bak2
+
+# Scripts de reparacion ad-hoc
+reparar_*.py
+aplicar_*.py
