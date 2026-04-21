@@ -8,6 +8,7 @@ interface LeadColumnProps {
   onDropLead?: (leadId: string, etapa: EtapaLead) => void;
   onClickLead?: (lead: Lead) => void;
   onDragStartLead?: (e: DragEvent<HTMLDivElement>, lead: Lead) => void;
+  onEnviarCorreo?: (lead: Lead) => void;
   contador?: ReactNode;
 }
 
@@ -17,6 +18,7 @@ export function LeadColumn({
   onDropLead,
   onClickLead,
   onDragStartLead,
+  onEnviarCorreo,
 }: LeadColumnProps) {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -50,6 +52,7 @@ export function LeadColumn({
             lead={lead}
             onClick={onClickLead}
             onDragStart={onDragStartLead}
+            onEnviarCorreo={onEnviarCorreo}
           />
         ))}
       </div>

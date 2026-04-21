@@ -19,6 +19,7 @@ import { LeadDetailPage } from '@/pages/LeadDetailPage';
 import { UsuariosPage } from '@/pages/UsuariosPage';
 import { ConfiguracionPage } from '@/pages/ConfiguracionPage';
 import { ArchivadosPage } from '@/pages/ArchivadosPage';
+import { PlantillasPage } from '@/pages/PlantillasPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 function RequiereAuth({ children }: { children: ReactElement }) {
@@ -96,6 +97,14 @@ export function AppRouter() {
           element={
             <RequiereRol roles={['ADMIN']}>
               <UsuariosPage />
+            </RequiereRol>
+          }
+        />
+        <Route
+          path="/plantillas"
+          element={
+            <RequiereRol roles={['ADMIN', 'SUPERVISOR']}>
+              <PlantillasPage />
             </RequiereRol>
           }
         />

@@ -17,9 +17,14 @@ import { LeadCard } from './LeadCard';
 interface LeadKanbanMobileProps {
   data: LeadKanbanTipo;
   onClickLead?: (lead: Lead) => void;
+  onEnviarCorreo?: (lead: Lead) => void;
 }
 
-export function LeadKanbanMobile({ data, onClickLead }: LeadKanbanMobileProps) {
+export function LeadKanbanMobile({
+  data,
+  onClickLead,
+  onEnviarCorreo,
+}: LeadKanbanMobileProps) {
   const [etapaActiva, setEtapaActiva] = useState<EtapaLead>(ETAPAS[0]);
   const [leadAccion, setLeadAccion] = useState<Lead | null>(null);
   const cambiarEtapa = useCambiarEtapa();
@@ -84,6 +89,7 @@ export function LeadKanbanMobile({ data, onClickLead }: LeadKanbanMobileProps) {
                   <LeadCard
                     lead={lead}
                     onClick={onClickLead}
+                    onEnviarCorreo={onEnviarCorreo}
                     draggable={false}
                   />
                 </div>

@@ -1,6 +1,6 @@
 import { DragEvent, MouseEvent } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Mail, Plus } from 'lucide-react';
 import { Lead } from '@/types/lead';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -14,6 +14,7 @@ interface LeadCardProps {
   lead: Lead;
   onClick?: (lead: Lead) => void;
   onDragStart?: (e: DragEvent<HTMLDivElement>, lead: Lead) => void;
+  onEnviarCorreo?: (lead: Lead) => void;
   draggable?: boolean;
 }
 
@@ -21,6 +22,7 @@ export function LeadCard({
   lead,
   onClick,
   onDragStart,
+  onEnviarCorreo,
   draggable = true,
 }: LeadCardProps) {
   const usuario = useAuthStore((s) => s.usuario);
@@ -68,7 +70,7 @@ export function LeadCard({
         bordeResalte,
       )}
     >
-      {/* Fila 1: badge (izq) · nombre (centro, crece) · avatar/+ (der) */}
+      {/* Fila 1: badge (izq) · nombre (centro, crece) · ✉️ + avatar/+ (der) */}
       <div className="mb-1.5 flex items-start gap-2">
         {lead.fecha_pedido_wc && (
           <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
@@ -79,6 +81,26 @@ export function LeadCard({
         >
           {lead.nombre}
         </h3>
+        {onEnviarCorreo && lead.email && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEnviarCorreo(lead);
+            }}
+            aria-label="Enviar correo de recuperación"
+            title="Enviar correo de recuperación"
+            className={cn(
+              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
+              'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
+              'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+              // Mobile: siempre visible. Desktop: aparece en hover de la card.
+              'md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100',
+            )}
+          >
+            <Mail className="h-3.5 w-3.5" />
+          </button>
+        )}
         <AvatarOTomar
           lead={lead}
           esMio={esMio}
