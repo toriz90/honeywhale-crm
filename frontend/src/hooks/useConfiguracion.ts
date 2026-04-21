@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, unwrap } from '@/lib/api';
 import {
   ActualizarConfiguracionPayload,
+  ActualizarMarcaPayload,
   ConfiguracionUI,
+  MarcaEmpresa,
   WoocommerceSyncResult,
   WoocommerceTestResult,
 } from '@/types/configuracion';
@@ -22,6 +24,15 @@ export function useActualizarConfiguracion() {
   return useMutation({
     mutationFn: (payload: ActualizarConfiguracionPayload) =>
       unwrap<ConfiguracionUI>(api.patch('/configuracion', payload)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [QK] }),
+  });
+}
+
+export function useActualizarMarca() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ActualizarMarcaPayload) =>
+      unwrap<MarcaEmpresa>(api.patch('/configuracion/marca', payload)),
     onSuccess: () => qc.invalidateQueries({ queryKey: [QK] }),
   });
 }

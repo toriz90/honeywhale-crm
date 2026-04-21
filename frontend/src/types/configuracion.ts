@@ -17,8 +17,32 @@ export interface ConfiguracionUI {
   tieneWoocommerceConsumerSecret: boolean;
   tieneWoocommerceWebhookSecret: boolean;
   woocommerce_ultima_sync: string | null;
+  nombre_tienda: string | null;
+  telefono_tienda: string | null;
+  email_contacto: string | null;
+  direccion_tienda: string | null;
+  rfc_tienda: string | null;
+  logo_url: string | null;
   updated_at: string;
   updated_by_id: string | null;
+}
+
+export interface MarcaEmpresa {
+  nombreTienda: string;
+  telefonoTienda: string;
+  emailContacto: string;
+  direccionTienda: string;
+  rfcTienda: string;
+  logoUrl: string;
+}
+
+export interface ActualizarMarcaPayload {
+  nombreTienda: string;
+  telefonoTienda: string;
+  emailContacto: string;
+  direccionTienda?: string;
+  rfcTienda?: string;
+  logoUrl?: string;
 }
 
 export interface ActualizarConfiguracionPayload {

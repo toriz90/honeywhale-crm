@@ -1,6 +1,7 @@
 import { Topbar } from '@/components/layout/Topbar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
+import { MarcaForm } from '@/components/configuracion/MarcaForm';
 import { SmtpForm } from '@/components/configuracion/SmtpForm';
 import { GoogleOAuthForm } from '@/components/configuracion/GoogleOAuthForm';
 import { WoocommerceForm } from '@/components/configuracion/WoocommerceForm';
@@ -21,6 +22,7 @@ export function ConfiguracionPage() {
           </>
         ) : (
           <>
+            <MarcaForm configuracion={data} />
             <SmtpForm configuracion={data} />
             <GoogleOAuthForm configuracion={data} />
             <WoocommerceForm configuracion={data} />
