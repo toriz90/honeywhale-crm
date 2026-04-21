@@ -45,6 +45,9 @@ export interface Lead {
   asignado_a_id: string | null;
   asignadoA: Usuario | null;
   notas: string | null;
+  archivado?: boolean;
+  fecha_archivado?: string | null;
+  fecha_cambio_etapa?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -26,6 +26,10 @@ import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CambiarEtapaDto } from './dto/cambiar-etapa.dto';
 import { AsignarLeadDto } from './dto/asignar-lead.dto';
 import { FiltrarLeadsDto } from './dto/filtrar-leads.dto';
+import {
+  ArchivarMesDto,
+  ListarArchivadosQueryDto,
+} from './dto/archivar-mes.dto';
 
 @Controller('leads')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -53,6 +57,36 @@ export class LeadsController {
   @Get('kanban')
   findKanban(@CurrentUser() usuario: JwtUserPayload) {
     return this.leadsService.findKanban(usuario);
+  }
+
+  @Get('archivados')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  listarArchivados(@Query() query: ListarArchivadosQueryDto) {
+    return this.leadsService.listarArchivados(
+      query.page ?? 1,
+      query.pageSize ?? 50,
+      query.year,
+      query.month,
+    );
+  }
+
+  @Get('archivados/ultimo')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  async fechaUltimoArchivado() {
+    const fecha = await this.leadsService.fechaUltimoArchivado();
+    return { fecha: fecha ? fecha.toISOString() : null };
+  }
+
+  @Post('archivar-mes')
+  @Roles(Rol.ADMIN)
+  archivarMes(@Body() dto: ArchivarMesDto) {
+    return this.leadsService.archivarMes(dto.year, dto.month);
+  }
+
+  @Patch(':id/desarchivar')
+  @Roles(Rol.ADMIN)
+  desarchivar(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.leadsService.desarchivar(id);
   }
 
   @Get(':id')

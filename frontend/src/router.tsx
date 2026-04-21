@@ -17,6 +17,7 @@ import { LeadsPage } from '@/pages/LeadsPage';
 import { LeadDetailPage } from '@/pages/LeadDetailPage';
 import { UsuariosPage } from '@/pages/UsuariosPage';
 import { ConfiguracionPage } from '@/pages/ConfiguracionPage';
+import { ArchivadosPage } from '@/pages/ArchivadosPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 function RequiereAuth({ children }: { children: ReactElement }) {
@@ -73,6 +74,14 @@ export function AppRouter() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/leads" element={<LeadsPage />} />
         <Route path="/leads/:id" element={<LeadDetailPage />} />
+        <Route
+          path="/archivados"
+          element={
+            <RequiereRol roles={['ADMIN', 'SUPERVISOR']}>
+              <ArchivadosPage />
+            </RequiereRol>
+          }
+        />
         <Route
           path="/usuarios"
           element={

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +19,14 @@ import { AsignarLeadDto } from './dto/asignar-lead.dto';
 import { FiltrarLeadsDto } from './dto/filtrar-leads.dto';
 
 const LIMITE_KANBAN_POR_ETAPA = 50;
+const ETAPAS_FINALES: ReadonlyArray<EtapaLead> = [
+  EtapaLead.RECUPERADO,
+  EtapaLead.PERDIDO,
+];
+
+function esEtapaFinal(etapa: EtapaLead): boolean {
+  return ETAPAS_FINALES.includes(etapa);
+}
 
 export interface LeadsPaginados {
   data: Lead[];
@@ -27,8 +36,25 @@ export interface LeadsPaginados {
   totalPages: number;
 }
 
+export interface ResultadoArchivado {
+  total: number;
+  archivados: number;
+  year: number;
+  month: number;
+}
+
+export interface ArchivadosPaginados {
+  data: Lead[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 @Injectable()
 export class LeadsService {
+  private readonly logger = new Logger(LeadsService.name);
+
   constructor(
     @InjectRepository(Lead)
     private readonly leadsRepo: Repository<Lead>,
@@ -44,6 +70,7 @@ export class LeadsService {
       await this.validarUsuarioAsignado(dto.asignado_a_id);
     }
 
+    const etapaInicial = dto.etapa ?? EtapaLead.NUEVO;
     const nuevo = this.leadsRepo.create({
       nombre: dto.nombre,
       email: dto.email ?? null,
@@ -52,10 +79,11 @@ export class LeadsService {
       monto: dto.monto.toFixed(2),
       moneda: dto.moneda ?? Moneda.MXN,
       orden_woo_id: dto.orden_woo_id ?? null,
-      etapa: dto.etapa ?? EtapaLead.NUEVO,
+      etapa: etapaInicial,
       motivo_abandono: dto.motivo_abandono ?? null,
       asignado_a_id: dto.asignado_a_id ?? null,
       notas: dto.notas ?? null,
+      fecha_cambio_etapa: esEtapaFinal(etapaInicial) ? new Date() : null,
     });
 
     const guardado = await this.leadsRepo.save(nuevo);
@@ -76,6 +104,8 @@ export class LeadsService {
       .leftJoinAndSelect('lead.asignadoA', 'asignadoA');
 
     this.aplicarRbac(qb, usuarioActual);
+
+    qb.andWhere('lead.archivado = :archivado', { archivado: false });
 
     if (filtros.etapa) {
       qb.andWhere('lead.etapa = :etapa', { etapa: filtros.etapa });
@@ -145,7 +175,10 @@ export class LeadsService {
     if (dto.monto !== undefined) lead.monto = dto.monto.toFixed(2);
     if (dto.moneda !== undefined) lead.moneda = dto.moneda;
     if (dto.orden_woo_id !== undefined) lead.orden_woo_id = dto.orden_woo_id;
-    if (dto.etapa !== undefined) lead.etapa = dto.etapa;
+    if (dto.etapa !== undefined && dto.etapa !== lead.etapa) {
+      lead.etapa = dto.etapa;
+      lead.fecha_cambio_etapa = new Date();
+    }
     if (dto.motivo_abandono !== undefined) {
       lead.motivo_abandono = dto.motivo_abandono;
     }
@@ -163,8 +196,11 @@ export class LeadsService {
     const lead = await this.findByIdConRelaciones(id);
     this.verificarAccesoLead(lead, usuarioActual, 'mover de etapa');
 
-    lead.etapa = dto.etapa;
-    await this.leadsRepo.save(lead);
+    if (dto.etapa !== lead.etapa) {
+      lead.etapa = dto.etapa;
+      lead.fecha_cambio_etapa = new Date();
+      await this.leadsRepo.save(lead);
+    }
     return this.findByIdConRelaciones(id);
   }
 
@@ -212,7 +248,8 @@ export class LeadsService {
         const qb = this.leadsRepo
           .createQueryBuilder('lead')
           .leftJoinAndSelect('lead.asignadoA', 'asignadoA')
-          .where('lead.etapa = :etapa', { etapa });
+          .where('lead.etapa = :etapa', { etapa })
+          .andWhere('lead.archivado = :archivado', { archivado: false });
 
         this.aplicarRbac(qb, usuarioActual);
 
@@ -222,6 +259,96 @@ export class LeadsService {
     );
 
     return resultado;
+  }
+
+  async archivarMes(year: number, month: number): Promise<ResultadoArchivado> {
+    const rango = calcularRangoMes(year, month);
+
+    const totalCandidatos = await this.leadsRepo
+      .createQueryBuilder('lead')
+      .where('lead.archivado = :archivado', { archivado: false })
+      .andWhere('lead.etapa IN (:...etapas)', {
+        etapas: ETAPAS_FINALES as EtapaLead[],
+      })
+      .andWhere('lead.fecha_cambio_etapa >= :desde', { desde: rango.desde })
+      .andWhere('lead.fecha_cambio_etapa < :hasta', { hasta: rango.hasta })
+      .getCount();
+
+    const result = await this.leadsRepo
+      .createQueryBuilder()
+      .update(Lead)
+      .set({ archivado: true, fecha_archivado: () => 'NOW()' })
+      .where('archivado = :archivado', { archivado: false })
+      .andWhere('etapa IN (:...etapas)', {
+        etapas: ETAPAS_FINALES as EtapaLead[],
+      })
+      .andWhere('fecha_cambio_etapa >= :desde', { desde: rango.desde })
+      .andWhere('fecha_cambio_etapa < :hasta', { hasta: rango.hasta })
+      .execute();
+
+    const archivados = result.affected ?? 0;
+    this.logger.log(
+      `Archivado mensual ${year}-${String(month).padStart(2, '0')}: ${archivados}/${totalCandidatos} leads archivados`,
+    );
+
+    return {
+      total: totalCandidatos,
+      archivados,
+      year,
+      month,
+    };
+  }
+
+  async listarArchivados(
+    page = 1,
+    pageSize = 50,
+    year?: number,
+    month?: number,
+  ): Promise<ArchivadosPaginados> {
+    const qb = this.leadsRepo
+      .createQueryBuilder('lead')
+      .leftJoinAndSelect('lead.asignadoA', 'asignadoA')
+      .where('lead.archivado = :archivado', { archivado: true });
+
+    if (year && month) {
+      const rango = calcularRangoMes(year, month);
+      qb.andWhere('lead.fecha_cambio_etapa >= :desde', { desde: rango.desde });
+      qb.andWhere('lead.fecha_cambio_etapa < :hasta', { hasta: rango.hasta });
+    }
+
+    qb.orderBy('lead.fecha_cambio_etapa', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    const [data, total] = await qb.getManyAndCount();
+    const totalPages = pageSize > 0 ? Math.ceil(total / pageSize) : 0;
+
+    return { data, total, page, pageSize, totalPages };
+  }
+
+  async desarchivar(id: string): Promise<Lead> {
+    const lead = await this.leadsRepo.findOne({ where: { id } });
+    if (!lead) {
+      throw new NotFoundException('Lead no encontrado');
+    }
+    if (!lead.archivado) {
+      throw new BadRequestException('El lead no está archivado');
+    }
+    lead.archivado = false;
+    lead.fecha_archivado = null;
+    await this.leadsRepo.save(lead);
+    return this.findByIdConRelaciones(id);
+  }
+
+  async fechaUltimoArchivado(): Promise<Date | null> {
+    const row = await this.leadsRepo
+      .createQueryBuilder('lead')
+      .select('MAX(lead.fecha_archivado)', 'max')
+      .where('lead.fecha_archivado IS NOT NULL')
+      .getRawOne<{ max: Date | string | null }>();
+    const max = row?.max ?? null;
+    if (!max) return null;
+    return max instanceof Date ? max : new Date(max);
   }
 
   private aplicarRbac(
@@ -274,4 +401,16 @@ export class LeadsService {
       );
     }
   }
+}
+
+export function calcularRangoMes(
+  year: number,
+  month: number,
+): { desde: Date; hasta: Date } {
+  if (month < 1 || month > 12) {
+    throw new BadRequestException('Mes inválido (1-12)');
+  }
+  const desde = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const hasta = new Date(year, month, 1, 0, 0, 0, 0);
+  return { desde, hasta };
 }

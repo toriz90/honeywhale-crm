@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { ReporteMensual } from '@/components/dashboard/ReporteMensual';
 
 export function DashboardPage() {
   const usuario = useAuthStore((s) => s.usuario);
@@ -104,6 +105,11 @@ export function DashboardPage() {
                 </Card>
               )}
             </div>
+            {puedeVerTopAgentes && (
+              <div className="border-t border-border pt-4">
+                <ReporteMensual />
+              </div>
+            )}
           </>
         )}
       </div>

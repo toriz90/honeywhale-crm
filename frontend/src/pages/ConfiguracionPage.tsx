@@ -4,6 +4,7 @@ import { useConfiguracion } from '@/hooks/useConfiguracion';
 import { SmtpForm } from '@/components/configuracion/SmtpForm';
 import { GoogleOAuthForm } from '@/components/configuracion/GoogleOAuthForm';
 import { WoocommerceForm } from '@/components/configuracion/WoocommerceForm';
+import { ArchivoMensualForm } from '@/components/configuracion/ArchivoMensualForm';
 
 export function ConfiguracionPage() {
   const { data, isLoading } = useConfiguracion();
@@ -23,6 +24,7 @@ export function ConfiguracionPage() {
             <SmtpForm configuracion={data} />
             <GoogleOAuthForm configuracion={data} />
             <WoocommerceForm configuracion={data} />
+            <ArchivoMensualForm />
           </>
         )}
       </div>

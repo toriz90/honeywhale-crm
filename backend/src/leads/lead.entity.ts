@@ -71,6 +71,15 @@ export class Lead {
   @Column({ type: 'text', nullable: true })
   notas!: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  archivado!: boolean;
+
+  @Column({ name: 'fecha_archivado', type: 'datetime', nullable: true })
+  fecha_archivado!: Date | null;
+
+  @Column({ name: 'fecha_cambio_etapa', type: 'datetime', nullable: true })
+  fecha_cambio_etapa!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   created_at!: Date;
 
