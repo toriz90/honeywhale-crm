@@ -21,6 +21,14 @@ export const COLUMNAS_ORDEN_PERMITIDAS = [
 ] as const;
 export type ColumnaOrdenLead = (typeof COLUMNAS_ORDEN_PERMITIDAS)[number];
 
+export const FILTROS_ASIGNACION_PERMITIDOS = [
+  'mios',
+  'sin_asignar',
+  'equipo',
+  'todos',
+] as const;
+export type FiltroAsignacion = (typeof FILTROS_ASIGNACION_PERMITIDOS)[number];
+
 export class FiltrarLeadsDto {
   @IsOptional()
   @IsEnum(EtapaLead, { message: 'Etapa inválida' })
@@ -29,6 +37,12 @@ export class FiltrarLeadsDto {
   @IsOptional()
   @IsUUID('4', { message: 'asignado_a_id debe ser un UUID válido' })
   asignado_a_id?: string;
+
+  @IsOptional()
+  @IsIn(FILTROS_ASIGNACION_PERMITIDOS, {
+    message: `filtro inválido. Permitidos: ${FILTROS_ASIGNACION_PERMITIDOS.join(', ')}`,
+  })
+  filtro?: FiltroAsignacion;
 
   @IsOptional()
   @IsString()

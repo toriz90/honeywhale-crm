@@ -3,15 +3,18 @@ import { api, unwrap } from '@/lib/api';
 import {
   CreateLeadPayload,
   EtapaLead,
+  FiltroAsignacion,
   FiltrosLeads,
   Lead,
   LeadKanban,
   LeadsPaginados,
+  StatsTemperatura,
   UpdateLeadPayload,
 } from '@/types/lead';
 
 const QK_LEADS = 'leads';
 const QK_KANBAN = 'leads-kanban';
+const QK_STATS_TEMP = 'leads-stats-temperatura';
 
 export function useLeads(filtros: FiltrosLeads) {
   return useQuery({
@@ -21,10 +24,36 @@ export function useLeads(filtros: FiltrosLeads) {
   });
 }
 
-export function useLeadKanban() {
+export function useLeadKanban(filtro?: FiltroAsignacion) {
   return useQuery({
-    queryKey: [QK_KANBAN],
-    queryFn: () => unwrap<LeadKanban>(api.get('/leads/kanban')),
+    queryKey: [QK_KANBAN, filtro ?? 'default'],
+    queryFn: () =>
+      unwrap<LeadKanban>(
+        api.get('/leads/kanban', {
+          params: filtro ? { filtro } : undefined,
+        }),
+      ),
+  });
+}
+
+export function useStatsTemperatura(refetchInterval = 30_000) {
+  return useQuery({
+    queryKey: [QK_STATS_TEMP],
+    queryFn: () => unwrap<StatsTemperatura>(api.get('/leads/stats-temperatura')),
+    refetchInterval,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useTomarLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => unwrap<Lead>(api.post(`/leads/${id}/tomar`)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS] });
+      qc.invalidateQueries({ queryKey: [QK_STATS_TEMP] });
+    },
   });
 }
 

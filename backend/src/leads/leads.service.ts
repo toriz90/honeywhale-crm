@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -16,7 +17,10 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CambiarEtapaDto } from './dto/cambiar-etapa.dto';
 import { AsignarLeadDto } from './dto/asignar-lead.dto';
-import { FiltrarLeadsDto } from './dto/filtrar-leads.dto';
+import {
+  FiltrarLeadsDto,
+  FiltroAsignacion,
+} from './dto/filtrar-leads.dto';
 
 const LIMITE_KANBAN_POR_ETAPA = 50;
 const ETAPAS_FINALES: ReadonlyArray<EtapaLead> = [
@@ -49,6 +53,20 @@ export interface ArchivadosPaginados {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface BucketTemperatura {
+  count: number;
+  montoTotal: number;
+}
+
+export interface StatsTemperatura {
+  calientes: BucketTemperatura;
+  tibios: BucketTemperatura;
+  templados: BucketTemperatura;
+  enfriandose: BucketTemperatura;
+  frios: BucketTemperatura;
+  congelados: BucketTemperatura;
 }
 
 @Injectable()
@@ -103,7 +121,7 @@ export class LeadsService {
       .createQueryBuilder('lead')
       .leftJoinAndSelect('lead.asignadoA', 'asignadoA');
 
-    this.aplicarRbac(qb, usuarioActual);
+    this.aplicarFiltroAsignacion(qb, usuarioActual, filtros.filtro);
 
     qb.andWhere('lead.archivado = :archivado', { archivado: false });
 
@@ -239,6 +257,7 @@ export class LeadsService {
 
   async findKanban(
     usuarioActual: JwtUserPayload,
+    filtroAsignacion?: FiltroAsignacion,
   ): Promise<Record<EtapaLead, Lead[]>> {
     const etapas = Object.values(EtapaLead);
     const resultado = {} as Record<EtapaLead, Lead[]>;
@@ -251,14 +270,108 @@ export class LeadsService {
           .where('lead.etapa = :etapa', { etapa })
           .andWhere('lead.archivado = :archivado', { archivado: false });
 
-        this.aplicarRbac(qb, usuarioActual);
+        this.aplicarFiltroAsignacion(qb, usuarioActual, filtroAsignacion);
 
-        qb.orderBy('lead.updated_at', 'DESC').take(LIMITE_KANBAN_POR_ETAPA);
+        // Ordenamiento: leads con fecha_pedido_wc más reciente primero
+        // (calientes arriba), luego updated_at como tiebreaker. Los nulos
+        // de fecha_pedido_wc se van al final.
+        qb.addOrderBy('lead.fecha_pedido_wc IS NULL', 'ASC')
+          .addOrderBy('lead.fecha_pedido_wc', 'DESC')
+          .addOrderBy('lead.updated_at', 'DESC')
+          .take(LIMITE_KANBAN_POR_ETAPA);
         resultado[etapa] = await qb.getMany();
       }),
     );
 
     return resultado;
+  }
+
+  async tomar(id: string, usuarioActual: JwtUserPayload): Promise<Lead> {
+    // UPDATE condicional race-safe: solo asigna si el lead sigue sin dueño
+    // y no está archivado. Validamos affected para detectar colisiones.
+    const result = await this.leadsRepo
+      .createQueryBuilder()
+      .update(Lead)
+      .set({
+        asignado_a_id: usuarioActual.sub,
+        fecha_asignacion: () => 'NOW()',
+      })
+      .where('id = :id', { id })
+      .andWhere('asignado_a_id IS NULL')
+      .andWhere('archivado = :archivado', { archivado: false })
+      .execute();
+
+    if (!result.affected || result.affected === 0) {
+      const existe = await this.leadsRepo.findOne({ where: { id } });
+      if (!existe) {
+        throw new NotFoundException('Lead no encontrado');
+      }
+      throw new ConflictException(
+        'Este lead ya fue tomado por otro agente o ya no está disponible.',
+      );
+    }
+
+    this.logger.log(`Lead ${id} tomado por ${usuarioActual.email}`);
+    return this.findByIdConRelaciones(id);
+  }
+
+  async statsTemperatura(
+    usuarioActual: JwtUserPayload,
+  ): Promise<StatsTemperatura> {
+    const qb = this.leadsRepo
+      .createQueryBuilder('lead')
+      .select(
+        `CASE
+          WHEN TIMESTAMPDIFF(MINUTE, lead.fecha_pedido_wc, NOW()) < 15 THEN 'calientes'
+          WHEN TIMESTAMPDIFF(MINUTE, lead.fecha_pedido_wc, NOW()) < 60 THEN 'tibios'
+          WHEN TIMESTAMPDIFF(MINUTE, lead.fecha_pedido_wc, NOW()) < 180 THEN 'templados'
+          WHEN TIMESTAMPDIFF(MINUTE, lead.fecha_pedido_wc, NOW()) < 1440 THEN 'enfriandose'
+          WHEN TIMESTAMPDIFF(MINUTE, lead.fecha_pedido_wc, NOW()) < 10080 THEN 'frios'
+          ELSE 'congelados'
+        END`,
+        'bucket',
+      )
+      .addSelect('COUNT(lead.id)', 'count')
+      .addSelect('COALESCE(SUM(lead.monto), 0)', 'monto')
+      .where('lead.archivado = :archivado', { archivado: false })
+      .andWhere('lead.etapa = :etapa', { etapa: EtapaLead.NUEVO })
+      .andWhere('lead.fecha_pedido_wc IS NOT NULL');
+
+    if (usuarioActual.rol === Rol.AGENTE) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('lead.asignado_a_id IS NULL').orWhere(
+            'lead.asignado_a_id = :uid',
+            { uid: usuarioActual.sub },
+          );
+        }),
+      );
+    }
+
+    const raws = await qb
+      .groupBy('bucket')
+      .getRawMany<{ bucket: string; count: string; monto: string }>();
+
+    const base: StatsTemperatura = {
+      calientes: { count: 0, montoTotal: 0 },
+      tibios: { count: 0, montoTotal: 0 },
+      templados: { count: 0, montoTotal: 0 },
+      enfriandose: { count: 0, montoTotal: 0 },
+      frios: { count: 0, montoTotal: 0 },
+      congelados: { count: 0, montoTotal: 0 },
+    };
+
+    for (const r of raws) {
+      const key = r.bucket as keyof StatsTemperatura;
+      if (key in base) {
+        base[key] = {
+          count: Number(r.count),
+          montoTotal: Math.round(Number(r.monto) * 100) / 100,
+        };
+      }
+    }
+
+    return base;
   }
 
   async archivarMes(year: number, month: number): Promise<ResultadoArchivado> {
@@ -351,15 +464,66 @@ export class LeadsService {
     return max instanceof Date ? max : new Date(max);
   }
 
-  private aplicarRbac(
+  /**
+   * Aplica el filtro de asignación combinado con RBAC. Para AGENTE el default
+   * es "mios_y_sin_asignar" (sus leads + los disponibles), pero puede pedir
+   * explícitamente "equipo" o "sin_asignar". "todos" sólo para SUPERVISOR/ADMIN.
+   */
+  private aplicarFiltroAsignacion(
     qb: SelectQueryBuilder<Lead>,
     usuario: JwtUserPayload,
+    filtro?: FiltroAsignacion,
   ): void {
-    if (usuario.rol === Rol.AGENTE) {
-      qb.andWhere('lead.asignado_a_id = :usuarioActualId', {
-        usuarioActualId: usuario.sub,
-      });
+    const esAgente = usuario.rol === Rol.AGENTE;
+    const f = filtro ?? (esAgente ? undefined : 'todos');
+
+    if (esAgente && f === 'todos') {
+      // Silent upgrade: un AGENTE nunca ve "todos"; lo degradamos a la vista
+      // mios + sin asignar (default).
+      this.aplicarMiosYSinAsignar(qb, usuario.sub);
+      return;
     }
+
+    switch (f) {
+      case 'mios':
+        qb.andWhere('lead.asignado_a_id = :uid', { uid: usuario.sub });
+        break;
+      case 'sin_asignar':
+        qb.andWhere('lead.asignado_a_id IS NULL');
+        break;
+      case 'equipo':
+        if (esAgente) {
+          // Para AGENTE, "equipo" = leads asignados a otros (no suyos ni sin asignar)
+          qb.andWhere('lead.asignado_a_id IS NOT NULL').andWhere(
+            'lead.asignado_a_id != :uid',
+            { uid: usuario.sub },
+          );
+        }
+        // Para SUPERVISOR/ADMIN "equipo" no filtra (ya ven todo)
+        break;
+      case 'todos':
+        // sin filtro adicional (SUPERVISOR/ADMIN)
+        break;
+      default:
+        // Default AGENTE: suyos + sin asignar
+        if (esAgente) {
+          this.aplicarMiosYSinAsignar(qb, usuario.sub);
+        }
+        break;
+    }
+  }
+
+  private aplicarMiosYSinAsignar(
+    qb: SelectQueryBuilder<Lead>,
+    uid: string,
+  ): void {
+    qb.andWhere(
+      new Brackets((w) => {
+        w.where('lead.asignado_a_id = :uid', { uid }).orWhere(
+          'lead.asignado_a_id IS NULL',
+        );
+      }),
+    );
   }
 
   private verificarAccesoLead(

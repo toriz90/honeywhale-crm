@@ -14,6 +14,7 @@ import { formatMoneda } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 import { mensajeDeError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { BadgeTemperatura } from './BadgeTemperatura';
 
 interface LeadKanbanMobileProps {
   data: LeadKanbanTipo;
@@ -93,9 +94,16 @@ export function LeadKanbanMobile({ data, onClickLead }: LeadKanbanMobileProps) {
                     <span className="font-medium text-primary">
                       {lead.nombre}
                     </span>
-                    <span className="text-xs text-secondary">
-                      {lead.moneda}
-                    </span>
+                    {lead.fecha_pedido_wc ? (
+                      <BadgeTemperatura
+                        fechaPedido={lead.fecha_pedido_wc}
+                        compacto
+                      />
+                    ) : (
+                      <span className="text-xs text-secondary">
+                        {lead.moneda}
+                      </span>
+                    )}
                   </div>
                   <div className="mb-2 truncate text-xs text-secondary">
                     {lead.producto}

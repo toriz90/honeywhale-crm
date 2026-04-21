@@ -44,6 +44,7 @@ export interface PedidoWooCommerce {
   total?: string;
   currency?: string;
   date_created?: string;
+  date_created_gmt?: string;
   customer_id?: number;
   billing?: {
     first_name?: string;
@@ -189,6 +190,8 @@ export class WoocommerceService {
       items: items.length,
     });
 
+    const fechaPedidoWc = this.parsearFechaPedido(pedidoWC);
+
     const nuevo = this.leadRepo.create({
       nombre: nombre.slice(0, 150),
       email: billing.email ?? null,
@@ -200,6 +203,7 @@ export class WoocommerceService {
       origen,
       etapa: EtapaLead.NUEVO,
       notas: notasInternas,
+      fecha_pedido_wc: fechaPedidoWc,
     });
 
     try {
@@ -411,6 +415,23 @@ export class WoocommerceService {
       },
       headers: { Accept: 'application/json' },
     };
+  }
+
+  private parsearFechaPedido(pedido: PedidoWooCommerce): Date {
+    // WooCommerce devuelve `date_created_gmt` como ISO sin timezone offset.
+    // Lo tratamos como UTC para evitar interpretarlo en hora local del contenedor.
+    const gmt = pedido.date_created_gmt?.trim();
+    if (gmt) {
+      const iso = /Z|[+-]\d{2}:?\d{2}$/.test(gmt) ? gmt : `${gmt}Z`;
+      const d = new Date(iso);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    const local = pedido.date_created?.trim();
+    if (local) {
+      const d = new Date(local);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return new Date();
   }
 
   private mensajeError(err: unknown): string {

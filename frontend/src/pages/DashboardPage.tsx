@@ -15,6 +15,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { ReporteMensual } from '@/components/dashboard/ReporteMensual';
+import { ActividadHoy } from '@/components/dashboard/ActividadHoy';
+import { CalorPipeline } from '@/components/dashboard/CalorPipeline';
 
 export function DashboardPage() {
   const usuario = useAuthStore((s) => s.usuario);
@@ -105,6 +107,12 @@ export function DashboardPage() {
                 </Card>
               )}
             </div>
+            {puedeVerTopAgentes && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ActividadHoy />
+                <CalorPipeline />
+              </div>
+            )}
             {puedeVerTopAgentes && (
               <div className="border-t border-border pt-4">
                 <ReporteMensual />

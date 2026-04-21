@@ -30,6 +30,12 @@ export class DashboardController {
     return this.dashboardService.obtenerKPIs(usuario);
   }
 
+  @Get('actividad-hoy')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  actividadHoy() {
+    return this.dashboardService.actividadHoy();
+  }
+
   @Get('metricas-mensuales')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR)
   obtenerMetricasMensuales(@Query() query: MetricasMensualesQueryDto) {
