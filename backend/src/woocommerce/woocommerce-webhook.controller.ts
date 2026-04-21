@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Headers,
   HttpCode,
   HttpStatus,
   Logger,
@@ -46,14 +45,37 @@ export class WoocommerceWebhookController {
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async recibePedido(
     @Req() req: RequestConRawBody,
-    @Headers('x-wc-webhook-signature') signature: string | undefined,
-    @Headers('x-wc-webhook-topic') topic: string | undefined,
     // Nest + class-validator dejarían rechazar este payload; WooCommerce envía
     // estructuras variables por evento, así que lo tomamos como any y sólo
     // consumimos los campos que necesitamos en importarPedido().
     @Body() body: PedidoWooCommerce,
   ) {
     try {
+      const relevantes = Object.entries(req.headers || {}).filter(([k]) =>
+        k.toLowerCase().startsWith('x-wc') ||
+        k.toLowerCase().startsWith('x-webhook') ||
+        k.toLowerCase() === 'user-agent' ||
+        k.toLowerCase() === 'content-type' ||
+        k.toLowerCase() === 'content-length',
+      );
+      this.logger.log(
+        `Webhook incoming headers relevantes: ${JSON.stringify(Object.fromEntries(relevantes))}`,
+      );
+      this.logger.log(
+        `rawBody disponible: ${req.rawBody ? `SI (${req.rawBody.length} bytes)` : 'NO'}`,
+      );
+
+      const signature = this.leerHeader(req, [
+        'x-wc-webhook-signature',
+        'x-webhook-signature',
+        'webhook-signature',
+      ]);
+      const topic = this.leerHeader(req, [
+        'x-wc-webhook-topic',
+        'x-webhook-topic',
+        'webhook-topic',
+      ]);
+
       const creds =
         await this.configuracionService.obtenerCredencialesWoocommerce();
 
@@ -105,6 +127,20 @@ export class WoocommerceWebhookController {
       this.logger.error(`Error procesando webhook WooCommerce: ${mensaje}`);
       return { ok: false, error: 'error_interno' };
     }
+  }
+
+  private leerHeader(req: any, nombres: string[]): string | undefined {
+    if (!req?.headers) return undefined;
+    const keys = Object.keys(req.headers);
+    for (const nombre of nombres) {
+      const match = keys.find((k) => k.toLowerCase() === nombre.toLowerCase());
+      if (match) {
+        const value = req.headers[match];
+        if (typeof value === 'string' && value.length > 0) return value;
+        if (Array.isArray(value) && value.length > 0) return value[0];
+      }
+    }
+    return undefined;
   }
 
   private firmaValida(
