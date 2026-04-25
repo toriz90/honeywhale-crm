@@ -1,6 +1,6 @@
-import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+﻿import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-// `Mail` oculto temporalmente — usaremos Octopus Mail
+// `Mail` oculto temporalmente â€” usaremos Octopus Mail
 import { Loader2, /* Mail, */ MoreVertical, Plus, Trash2 } from 'lucide-react';
 import { Lead } from '@/types/lead';
 import { formatMoneda } from '@/lib/utils';
@@ -25,7 +25,7 @@ export function LeadCard({
   lead,
   onClick,
   onDragStart,
-  // onEnviarCorreo, // oculto temporalmente — usaremos Octopus Mail
+  // onEnviarCorreo, // oculto temporalmente â€” usaremos Octopus Mail
   draggable = true,
 }: LeadCardProps) {
   const usuario = useAuthStore((s) => s.usuario);
@@ -51,7 +51,7 @@ export function LeadCard({
 
   const esMio = !!usuario && lead.asignado_a_id === usuario.id;
 
-  // Borde de resalte sólo para CALIENTE/TIBIO. El resto usa el borde estándar.
+  // Borde de resalte sÃ³lo para CALIENTE/TIBIO. El resto usa el borde estÃ¡ndar.
   const bordeResalte =
     temperatura === 'caliente'
       ? 'border-2 border-[#ff6b35]'
@@ -102,7 +102,7 @@ export function LeadCard({
         bordeResalte,
       )}
     >
-      {/* Fila 1: badge (izq) · nombre (centro, crece) · ⋮ + avatar/+ (der) */}
+      {/* Fila 1: badge (izq) Â· nombre (centro, crece) Â· â‹® + avatar/+ (der) */}
       <div className="mb-1.5 flex items-start gap-2">
         {lead.fecha_pedido_wc && (
           <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
@@ -113,7 +113,7 @@ export function LeadCard({
         >
           {lead.nombre}
         </h3>
-        {/* Oculto temporalmente — usaremos Octopus Mail
+        {/* Oculto temporalmente â€” usaremos Octopus Mail
         {onEnviarCorreo && lead.email && (
           <button
             type="button"
@@ -121,8 +121,8 @@ export function LeadCard({
               e.stopPropagation();
               onEnviarCorreo(lead);
             }}
-            aria-label="Enviar correo de recuperación"
-            title="Enviar correo de recuperación"
+            aria-label="Enviar correo de recuperaciÃ³n"
+            title="Enviar correo de recuperaciÃ³n"
             className={cn(
               'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
               'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
@@ -143,10 +143,10 @@ export function LeadCard({
                 e.stopPropagation();
                 setMenuOpen((v) => !v);
               }}
-              aria-label="Más opciones"
+              aria-label="MÃ¡s opciones"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              title="Más opciones"
+              title="MÃ¡s opciones"
               className={cn(
                 'inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
                 'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
@@ -197,7 +197,7 @@ export function LeadCard({
 
       {/* Fila 3: monto + moneda */}
       <div className="flex items-baseline gap-1">
-        <span className="text-base font-bold text-[var(--accent)]">
+        <span className="text-lg font-bold text-[var(--monto-color)]">
           {formatMoneda(lead.monto, lead.moneda)}
         </span>
         <span className="text-xs text-[var(--text-secondary)]">
@@ -212,7 +212,7 @@ export function LeadCard({
             onClose={() => {
               if (!eliminar.isPending) setConfirmOpen(false);
             }}
-            title={`¿Eliminar lead ${lead.nombre}?`}
+            title={`Â¿Eliminar lead ${lead.nombre}?`}
             size="sm"
             fullScreenOnMobile={false}
             footer={
@@ -235,8 +235,8 @@ export function LeadCard({
             }
           >
             <p className="text-sm text-[var(--text-secondary)]">
-              Esta acción se puede revertir desde la base de datos pero no
-              desde la interfaz. ¿Continuar?
+              Esta acciÃ³n se puede revertir desde la base de datos pero no
+              desde la interfaz. Â¿Continuar?
             </p>
           </Modal>
         </div>
@@ -254,11 +254,11 @@ interface AvatarOTomarProps {
 function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
   const tomar = useTomarLead();
 
-  // Asignado: avatar de iniciales, NO clickeable, ring si es mío.
+  // Asignado: avatar de iniciales, NO clickeable, ring si es mÃ­o.
   if (lead.asignadoA) {
     return (
       <span
-        aria-label={`Asignado a ${lead.asignadoA.nombre}${esMio ? ' (tú)' : ''}`}
+        aria-label={`Asignado a ${lead.asignadoA.nombre}${esMio ? ' (tÃº)' : ''}`}
         title={lead.asignadoA.nombre}
         className={cn(
           'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
@@ -272,7 +272,7 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
     );
   }
 
-  // Sin asignar pero el usuario no puede tomarlo: círculo decorativo.
+  // Sin asignar pero el usuario no puede tomarlo: cÃ­rculo decorativo.
   if (!puedeTomar) {
     return (
       <span
@@ -285,7 +285,7 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
     );
   }
 
-  // Sin asignar + puedeTomar: botón clickeable que dispara la mutation.
+  // Sin asignar + puedeTomar: botÃ³n clickeable que dispara la mutation.
   const onTomar = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (tomar.isPending) return;

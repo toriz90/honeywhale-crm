@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+﻿import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -48,8 +48,8 @@ export function LeadListMobile({
             <Badge tono="accent">{ETAPA_LABELS[lead.etapa as EtapaLead]}</Badge>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <MetaItem label="Email" value={lead.email ?? '—'} />
-            <MetaItem label="Teléfono" value={lead.telefono} />
+            <MetaItem label="Email" value={lead.email ?? 'â€”'} />
+            <MetaItem label="TelÃ©fono" value={lead.telefono} />
             <MetaItem
               label="Monto"
               value={formatMoneda(lead.monto, lead.moneda)}
@@ -100,7 +100,7 @@ function MetaItem({
       <div
         className={
           highlight
-            ? 'text-base font-bold text-[var(--accent)]'
+            ? 'text-lg font-bold text-[var(--monto-color)]'
             : 'text-sm text-primary'
         }
       >
