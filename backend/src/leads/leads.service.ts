@@ -55,8 +55,13 @@ export interface ArchivadosPaginados {
   totalPages: number;
 }
 
+export type LeadConIntentos = Lead & {
+  intentoNumero: number;
+  totalIntentos: number;
+};
+
 export interface KanbanEtapaPaginada {
-  data: Lead[];
+  data: LeadConIntentos[];
   total: number;
   page: number;
   pageSize: number;
@@ -300,6 +305,13 @@ export class LeadsService {
    * (total cuenta filas en BD, no está topado a LIMITE_KANBAN_POR_ETAPA).
    * Reusa el mismo orden y filtros que findKanban para que el scroll
    * infinito en frontend siga viendo los leads en el mismo orden.
+   *
+   * Cada lead viene enriquecido con `intentoNumero` (posición ordinal del
+   * lead entre los pedidos del mismo email, ordenados por created_at) y
+   * `totalIntentos` (cuántos pedidos no archivados tiene ese email en total).
+   * Se calcula con window functions ROW_NUMBER/COUNT OVER (PARTITION BY email)
+   * en una subquery que cubre TODOS los leads no archivados (no sólo los de
+   * esta etapa) para que el contador sea global por cliente.
    */
   async findKanbanEtapa(
     etapa: EtapaLead,
@@ -308,22 +320,75 @@ export class LeadsService {
     usuarioActual: JwtUserPayload,
     filtroAsignacion?: FiltroAsignacion,
   ): Promise<KanbanEtapaPaginada> {
-    const qb = this.leadsRepo
+    const aplicarFiltrosBase = (qb: SelectQueryBuilder<Lead>) => {
+      qb.where('lead.etapa = :etapa', { etapa }).andWhere(
+        'lead.archivado = :archivado',
+        { archivado: false },
+      );
+      this.aplicarFiltroAsignacion(qb, usuarioActual, filtroAsignacion);
+    };
+
+    // Conteo total separado del query principal para que take/skip no afecte
+    // y para evitar coste de la subquery de window functions cuando sólo
+    // queremos saber cuántas filas hay.
+    const countQb = this.leadsRepo.createQueryBuilder('lead');
+    aplicarFiltrosBase(countQb);
+    const total = await countQb.getCount();
+
+    if (total === 0) {
+      return { data: [], total: 0, page, pageSize, hasMore: false };
+    }
+
+    const dataQb = this.leadsRepo
       .createQueryBuilder('lead')
       .leftJoinAndSelect('lead.asignadoA', 'asignadoA')
-      .where('lead.etapa = :etapa', { etapa })
-      .andWhere('lead.archivado = :archivado', { archivado: false });
+      .leftJoin(
+        (sub) =>
+          sub
+            .select('inner_lead.id', 'lid')
+            .addSelect(
+              'ROW_NUMBER() OVER (PARTITION BY inner_lead.email ORDER BY inner_lead.created_at ASC, inner_lead.id ASC)',
+              'intento',
+            )
+            .addSelect(
+              'COUNT(*) OVER (PARTITION BY inner_lead.email)',
+              'total_intentos',
+            )
+            .from(Lead, 'inner_lead')
+            .where('inner_lead.archivado = :archInner', { archInner: false })
+            .andWhere('inner_lead.email IS NOT NULL')
+            .andWhere("inner_lead.email != ''"),
+        'attempts',
+        'attempts.lid = lead.id',
+      )
+      .addSelect('attempts.intento', 'lead_intento')
+      .addSelect('attempts.total_intentos', 'lead_total_intentos');
 
-    this.aplicarFiltroAsignacion(qb, usuarioActual, filtroAsignacion);
+    aplicarFiltrosBase(dataQb);
 
-    qb.orderBy('lead.fecha_pedido_wc', 'DESC')
+    dataQb
+      .orderBy('lead.fecha_pedido_wc', 'DESC')
       .addOrderBy('lead.updated_at', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize);
 
-    const [data, total] = await qb.getManyAndCount();
-    const hasMore = page * pageSize < total;
+    const result = await dataQb.getRawAndEntities();
 
+    const data: LeadConIntentos[] = result.entities.map((entity, idx) => {
+      const rawRow: Record<string, unknown> = result.raw[idx] ?? {};
+      const intentoRaw = Number(rawRow['lead_intento']);
+      const totalRaw = Number(rawRow['lead_total_intentos']);
+      const intentoNumero =
+        Number.isFinite(intentoRaw) && intentoRaw > 0 ? intentoRaw : 1;
+      const totalIntentos =
+        Number.isFinite(totalRaw) && totalRaw > 0 ? totalRaw : 1;
+      return Object.assign(entity, {
+        intentoNumero,
+        totalIntentos,
+      }) as LeadConIntentos;
+    });
+
+    const hasMore = page * pageSize < total;
     return { data, total, page, pageSize, hasMore };
   }
 
