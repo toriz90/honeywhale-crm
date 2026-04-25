@@ -99,7 +99,9 @@ function MetaItem({
       </div>
       <div
         className={
-          highlight ? 'text-sm font-semibold text-accent' : 'text-sm text-primary'
+          highlight
+            ? 'text-base font-bold text-[var(--accent)]'
+            : 'text-sm text-primary'
         }
       >
         {value}

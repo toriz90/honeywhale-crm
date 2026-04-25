@@ -1,14 +1,17 @@
-import { DragEvent, MouseEvent } from 'react';
+import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Mail, Plus } from 'lucide-react';
+// `Mail` oculto temporalmente — usaremos Octopus Mail
+import { Loader2, /* Mail, */ MoreVertical, Plus, Trash2 } from 'lucide-react';
 import { Lead } from '@/types/lead';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useTomarLead } from '@/hooks/useLeads';
+import { useEliminarLead, useTomarLead } from '@/hooks/useLeads';
 import { mensajeDeError } from '@/lib/api';
 import { BadgeTemperatura } from './BadgeTemperatura';
 import { calcularTemperatura } from '@/utils/temperatura';
 import { cn } from '@/lib/utils';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
 
 interface LeadCardProps {
   lead: Lead;
@@ -22,10 +25,15 @@ export function LeadCard({
   lead,
   onClick,
   onDragStart,
-  onEnviarCorreo,
+  // onEnviarCorreo, // oculto temporalmente — usaremos Octopus Mail
   draggable = true,
 }: LeadCardProps) {
   const usuario = useAuthStore((s) => s.usuario);
+  const eliminar = useEliminarLead();
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const puedeTomar =
     !!usuario &&
@@ -34,6 +42,8 @@ export function LeadCard({
     (usuario.rol === 'AGENTE' ||
       usuario.rol === 'SUPERVISOR' ||
       usuario.rol === 'ADMIN');
+
+  const puedeEliminar = usuario?.rol === 'ADMIN';
 
   const temperatura = lead.fecha_pedido_wc
     ? calcularTemperatura(lead.fecha_pedido_wc)
@@ -48,6 +58,28 @@ export function LeadCard({
       : temperatura === 'tibio'
         ? 'border border-[#f57c00]'
         : 'border border-[var(--border)]';
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onMouseDown = (e: globalThis.MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [menuOpen]);
+
+  const onConfirmarEliminar = async () => {
+    if (eliminar.isPending) return;
+    try {
+      await eliminar.mutateAsync(lead.id);
+      toast.success('Lead eliminado');
+      setConfirmOpen(false);
+    } catch (err) {
+      toast.error(mensajeDeError(err, 'No se pudo eliminar el lead'));
+    }
+  };
 
   return (
     <div
@@ -70,7 +102,7 @@ export function LeadCard({
         bordeResalte,
       )}
     >
-      {/* Fila 1: badge (izq) · nombre (centro, crece) · ✉️ + avatar/+ (der) */}
+      {/* Fila 1: badge (izq) · nombre (centro, crece) · ⋮ + avatar/+ (der) */}
       <div className="mb-1.5 flex items-start gap-2">
         {lead.fecha_pedido_wc && (
           <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
@@ -81,6 +113,7 @@ export function LeadCard({
         >
           {lead.nombre}
         </h3>
+        {/* Oculto temporalmente — usaremos Octopus Mail
         {onEnviarCorreo && lead.email && (
           <button
             type="button"
@@ -100,6 +133,52 @@ export function LeadCard({
           >
             <Mail className="h-3.5 w-3.5" />
           </button>
+        )}
+        */}
+        {puedeEliminar && (
+          <div ref={menuRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+              aria-label="Más opciones"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              title="Más opciones"
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
+                'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
+                'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+                'md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100',
+                menuOpen && 'md:opacity-100',
+              )}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-8 z-30 min-w-[160px] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg-elev)] py-1 shadow-lg"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    setConfirmOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar lead
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <AvatarOTomar
           lead={lead}
@@ -125,6 +204,43 @@ export function LeadCard({
           {lead.moneda}
         </span>
       </div>
+
+      {puedeEliminar && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Modal
+            open={confirmOpen}
+            onClose={() => {
+              if (!eliminar.isPending) setConfirmOpen(false);
+            }}
+            title={`¿Eliminar lead ${lead.nombre}?`}
+            size="sm"
+            fullScreenOnMobile={false}
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={eliminar.isPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={onConfirmarEliminar}
+                  loading={eliminar.isPending}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-sm text-[var(--text-secondary)]">
+              Esta acción se puede revertir desde la base de datos pero no
+              desde la interfaz. ¿Continuar?
+            </p>
+          </Modal>
+        </div>
+      )}
     </div>
   );
 }
