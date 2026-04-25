@@ -51,13 +51,20 @@ export function LeadCard({
 
   const esMio = !!usuario && lead.asignado_a_id === usuario.id;
 
-  // Borde de resalte sÃ³lo para CALIENTE/TIBIO. El resto usa el borde estÃ¡ndar.
+  // Borde de resalte: clientes recurrentes (3+ intentos) tienen prioridad
+  // sobre temperatura — un lead caliente recurrente es más urgente que uno
+  // caliente nuevo, así que su borde ámbar/rojo gana al naranja de calor.
+  const totalIntentos = lead.totalIntentos ?? 0;
   const bordeResalte =
-    temperatura === 'caliente'
-      ? 'border-2 border-[#ff6b35]'
-      : temperatura === 'tibio'
-        ? 'border border-[#f57c00]'
-        : 'border border-[var(--border)]';
+    totalIntentos >= 5
+      ? 'border-2 border-[#ef4444]'
+      : totalIntentos >= 3
+        ? 'border-2 border-[#f5a623]'
+        : temperatura === 'caliente'
+          ? 'border-2 border-[#ff6b35]'
+          : temperatura === 'tibio'
+            ? 'border border-[#f57c00]'
+            : 'border border-[var(--border)]';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -330,9 +337,11 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
   );
 }
 
-// Badge tono ámbar que indica el ordinal del lead actual entre todos los
-// pedidos abandonados del mismo email. Se muestra sólo si el cliente tiene
-// >1 pedidos no archivados — un cliente con un único intento no necesita ruido.
+// Tres niveles según totalIntentos:
+//   2       → pill compacto "2º" en ámbar suave (poco ruido).
+//   3-4     → pill "🔁 N intentos" sólido ámbar (#f5a623) + texto blanco.
+//   5+      → mismo pill en rojo (#ef4444) + animate-pulse-slow para alerta.
+// total === 1 no se renderiza (un único intento no es recurrencia).
 function BadgeIntento({
   numero,
   total,
@@ -341,6 +350,27 @@ function BadgeIntento({
   total: number | undefined;
 }) {
   if (!numero || !total || total <= 1) return null;
+
+  if (total >= 3) {
+    const esAlerta = total >= 5;
+    const tooltip = `Cliente recurrente — ${total} pedidos abandonados`;
+    return (
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold leading-tight text-white',
+          esAlerta && 'animate-pulse-slow',
+        )}
+        style={{ background: esAlerta ? '#ef4444' : '#f5a623' }}
+        title={tooltip}
+        aria-label={tooltip}
+      >
+        <span aria-hidden>🔁</span>
+        {total} intentos
+      </span>
+    );
+  }
+
+  // total === 2: pill compacto.
   const tooltip = `${ordinalLargo(numero)} intento de este cliente (${total} pedidos en total)`;
   return (
     <span
