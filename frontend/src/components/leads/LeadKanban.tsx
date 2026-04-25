@@ -1,17 +1,21 @@
 import { DragEvent } from 'react';
 import { toast } from 'sonner';
-import { ETAPAS, EtapaLead, Lead, LeadKanban as LeadKanbanTipo } from '@/types/lead';
+import { ETAPAS, EtapaLead, FiltroAsignacion, Lead } from '@/types/lead';
 import { useCambiarEtapa } from '@/hooks/useLeads';
 import { LeadColumn } from './LeadColumn';
 import { mensajeDeError } from '@/lib/api';
 
 interface LeadKanbanProps {
-  data: LeadKanbanTipo;
+  filtro?: FiltroAsignacion;
   onClickLead?: (lead: Lead) => void;
   onEnviarCorreo?: (lead: Lead) => void;
 }
 
-export function LeadKanban({ data, onClickLead, onEnviarCorreo }: LeadKanbanProps) {
+export function LeadKanban({
+  filtro,
+  onClickLead,
+  onEnviarCorreo,
+}: LeadKanbanProps) {
   const cambiarEtapa = useCambiarEtapa();
 
   const onDragStart = (e: DragEvent<HTMLDivElement>, lead: Lead) => {
@@ -34,7 +38,7 @@ export function LeadKanban({ data, onClickLead, onEnviarCorreo }: LeadKanbanProp
         <LeadColumn
           key={etapa}
           etapa={etapa}
-          leads={data[etapa] ?? []}
+          filtro={filtro}
           onDropLead={onDrop}
           onClickLead={onClickLead}
           onDragStartLead={onDragStart}

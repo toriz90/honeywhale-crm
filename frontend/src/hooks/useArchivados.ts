@@ -53,7 +53,6 @@ export function useArchivarMes() {
       qc.invalidateQueries({ queryKey: [QK_ARCHIVADOS] });
       qc.invalidateQueries({ queryKey: [QK_ULTIMO] });
       qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -67,7 +66,6 @@ export function useDesarchivar() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [QK_ARCHIVADOS] });
       qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
     },
   });
 }

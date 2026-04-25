@@ -6,7 +6,6 @@ import { CorreoEnviado, EnviarCorreoPayload } from '@/types/correo';
 
 const QK_CORREOS_LEAD = 'correos-lead';
 const QK_PLANTILLAS = 'plantillas';
-const QK_STATS_TEMP = 'leads-stats-temperatura';
 
 export function useEnviarCorreo() {
   const qc = useQueryClient();
@@ -17,7 +16,7 @@ export function useEnviarCorreo() {
       toast.success(`Correo enviado a ${data.destinatario_email}`);
       qc.invalidateQueries({ queryKey: [QK_CORREOS_LEAD, vars.leadId] });
       qc.invalidateQueries({ queryKey: [QK_PLANTILLAS] });
-      qc.invalidateQueries({ queryKey: [QK_STATS_TEMP] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
     },
     onError: (err) => {
       if (axios.isAxiosError(err) && err.response?.status === 429) {

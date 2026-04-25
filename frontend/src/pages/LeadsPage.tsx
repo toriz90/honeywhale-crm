@@ -19,11 +19,7 @@ import {
 } from '@/components/leads/FiltrosLeads';
 import { BannerCalientes } from '@/components/leads/BannerCalientes';
 import { PanelEnvioCorreo } from '@/components/correos/PanelEnvioCorreo';
-import {
-  useEliminarLead,
-  useLeadKanban,
-  useLeads,
-} from '@/hooks/useLeads';
+import { useEliminarLead, useLeads } from '@/hooks/useLeads';
 import { useNotificacionLeadCaliente } from '@/hooks/useNotificacionLeadCaliente';
 import {
   ETAPA_LABELS,
@@ -101,7 +97,6 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
     ? 'equipo'
     : filtroAsignacion;
 
-  const kanban = useLeadKanban(filtroEfectivo);
   const lista = useLeads({ ...filtros, filtro: filtroEfectivo });
   const eliminar = useEliminarLead();
 
@@ -158,34 +153,18 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
       {vista === 'kanban' ? (
         <>
           <div className="flex-1 overflow-hidden md:hidden">
-            {kanban.isLoading || !kanban.data ? (
-              <div className="flex flex-col gap-2 p-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-20" />
-                ))}
-              </div>
-            ) : (
-              <LeadKanbanMobile
-                data={kanban.data}
-                onClickLead={abrirEditar}
-                onEnviarCorreo={setCorreoLead}
-              />
-            )}
+            <LeadKanbanMobile
+              filtro={filtroEfectivo}
+              onClickLead={abrirEditar}
+              onEnviarCorreo={setCorreoLead}
+            />
           </div>
           <div className="hidden flex-1 overflow-hidden md:block">
-            {kanban.isLoading || !kanban.data ? (
-              <div className="flex gap-3 p-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-full min-w-[260px]" />
-                ))}
-              </div>
-            ) : (
-              <LeadKanban
-                data={kanban.data}
-                onClickLead={abrirEditar}
-                onEnviarCorreo={setCorreoLead}
-              />
-            )}
+            <LeadKanban
+              filtro={filtroEfectivo}
+              onClickLead={abrirEditar}
+              onEnviarCorreo={setCorreoLead}
+            />
           </div>
         </>
       ) : (
