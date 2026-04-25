@@ -31,6 +31,16 @@ export interface ResultadoImportacion {
   motivo?: string;
 }
 
+export interface ResultadoAutoRecuperado {
+  actualizado: boolean;
+  lead?: Lead;
+  motivo:
+    | 'lead_no_encontrado'
+    | 'etapa_terminal'
+    | 'etapa_no_movible'
+    | 'recuperado_por_compra';
+}
+
 export interface ResultadoSync {
   total: number;
   creados: number;
@@ -219,6 +229,65 @@ export class WoocommerceService {
       );
       return { creado: false, motivo: `error_guardar: ${mensaje}` };
     }
+  }
+
+  /**
+   * Cuando WooCommerce notifica que un pedido pasó a un estado "ganado"
+   * (processing/completed), movemos el lead asociado a RECUPERADO. No creamos
+   * leads nuevos: si el cliente compró sin haber abandonado primero, no hay
+   * nada que recuperar y se ignora.
+   *
+   * Las etapas terminales (RECUPERADO/PERDIDO) NO se sobrescriben — un lead
+   * ya marcado como PERDIDO no debería volver a moverse automáticamente sin
+   * revisión humana.
+   */
+  async marcarComoRecuperado(
+    ordenWooId: number,
+  ): Promise<ResultadoAutoRecuperado> {
+    const idStr = ordenWooId.toString();
+    const lead = await this.leadRepo.findOne({
+      where: { orden_woo_id: idStr, archivado: false },
+      relations: ['asignadoA'],
+    });
+
+    if (!lead) {
+      this.logger.log(
+        `Lead no encontrado para orden ganada ${idStr} — ignorando`,
+      );
+      return { actualizado: false, motivo: 'lead_no_encontrado' };
+    }
+
+    if (
+      lead.etapa === EtapaLead.RECUPERADO ||
+      lead.etapa === EtapaLead.PERDIDO
+    ) {
+      return { actualizado: false, lead, motivo: 'etapa_terminal' };
+    }
+
+    const etapasMovibles: ReadonlySet<EtapaLead> = new Set([
+      EtapaLead.NUEVO,
+      EtapaLead.CONTACTADO,
+      EtapaLead.EN_NEGOCIACION,
+      EtapaLead.OFERTA_ENVIADA,
+    ]);
+
+    if (!etapasMovibles.has(lead.etapa)) {
+      return { actualizado: false, lead, motivo: 'etapa_no_movible' };
+    }
+
+    lead.etapa = EtapaLead.RECUPERADO;
+    lead.fecha_cambio_etapa = new Date();
+    const guardado = await this.leadRepo.save(lead);
+
+    this.logger.log(
+      `Lead ${guardado.id} auto-recuperado por compra del cliente (orden ${ordenWooId})`,
+    );
+
+    return {
+      actualizado: true,
+      lead: guardado,
+      motivo: 'recuperado_por_compra',
+    };
   }
 
   async sincronizar(desde?: Date | null): Promise<ResultadoSync> {

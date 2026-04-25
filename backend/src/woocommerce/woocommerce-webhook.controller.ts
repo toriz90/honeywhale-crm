@@ -25,6 +25,12 @@ const ESTADOS_ABANDONADOS = new Set([
   'on-hold',
 ]);
 
+// Estados que indican que el cliente compró: el lead asociado debería pasar
+// a RECUPERADO automáticamente. Sólo se procesan en order.updated — un
+// order.created en processing/completed sería un pedido directo nunca
+// abandonado, no hay lead que recuperar.
+const ESTADOS_GANADOS = new Set(['processing', 'completed']);
+
 const TOPICS_RELEVANTES = new Set(['order.created', 'order.updated']);
 
 interface RequestConRawBody extends Request {
@@ -108,6 +114,30 @@ export class WoocommerceWebhookController {
       }
 
       const estado = body?.status ?? '';
+
+      // order.updated + estado ganado: mover lead existente a RECUPERADO.
+      // Si no hay lead asociado se ignora (el cliente compró sin haber
+      // abandonado antes — no hay nada que recuperar).
+      if (topic === 'order.updated' && ESTADOS_GANADOS.has(estado)) {
+        if (body?.id === undefined || body?.id === null) {
+          return { ignorado: true, motivo: 'pedido_sin_id' };
+        }
+        const resultado =
+          await this.woocommerceService.marcarComoRecuperado(body.id);
+        this.logger.log(
+          `Webhook order.updated estado=${estado} pedido=${body.id} → ${resultado.motivo}`,
+        );
+        return {
+          ok: true,
+          accion: 'auto_recuperado',
+          resultado: {
+            actualizado: resultado.actualizado,
+            motivo: resultado.motivo,
+            leadId: resultado.lead?.id,
+          },
+        };
+      }
+
       if (!ESTADOS_ABANDONADOS.has(estado)) {
         return { ignorado: true, motivo: 'estado_no_relevante' };
       }

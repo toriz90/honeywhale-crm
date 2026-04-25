@@ -52,6 +52,11 @@ export interface Lead {
   fecha_pedido_wc?: string | null;
   created_at: string;
   updated_at: string;
+  // Posición ordinal entre los pedidos no archivados con el mismo email,
+  // y total de pedidos del mismo email. Solo lo manda /leads/kanban/etapa/:etapa.
+  // Si el lead no tiene email, ambos valen 1.
+  intentoNumero?: number;
+  totalIntentos?: number;
 }
 
 export type FiltroAsignacion = 'mios' | 'sin_asignar' | 'equipo' | 'todos';

@@ -113,6 +113,10 @@ export function LeadCard({
         >
           {lead.nombre}
         </h3>
+        <BadgeIntento
+          numero={lead.intentoNumero}
+          total={lead.totalIntentos}
+        />
         {/* Oculto temporalmente â€” usaremos Octopus Mail
         {onEnviarCorreo && lead.email && (
           <button
@@ -324,6 +328,46 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
       )}
     </button>
   );
+}
+
+// Badge tono ámbar que indica el ordinal del lead actual entre todos los
+// pedidos abandonados del mismo email. Se muestra sólo si el cliente tiene
+// >1 pedidos no archivados — un cliente con un único intento no necesita ruido.
+function BadgeIntento({
+  numero,
+  total,
+}: {
+  numero: number | undefined;
+  total: number | undefined;
+}) {
+  if (!numero || !total || total <= 1) return null;
+  const tooltip = `${ordinalLargo(numero)} intento de este cliente (${total} pedidos en total)`;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-semibold leading-tight"
+      style={{
+        background: 'rgba(245, 124, 0, 0.18)',
+        color: '#f57c00',
+      }}
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      {numero}º
+    </span>
+  );
+}
+
+function ordinalLargo(n: number): string {
+  switch (n) {
+    case 1:
+      return '1er';
+    case 2:
+      return '2do';
+    case 3:
+      return '3er';
+    default:
+      return `${n}º`;
+  }
 }
 
 function iniciales(nombre: string): string {
