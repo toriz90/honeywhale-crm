@@ -19,7 +19,8 @@ import { LeadDetailPage } from '@/pages/LeadDetailPage';
 import { UsuariosPage } from '@/pages/UsuariosPage';
 import { ConfiguracionPage } from '@/pages/ConfiguracionPage';
 import { ArchivadosPage } from '@/pages/ArchivadosPage';
-import { PlantillasPage } from '@/pages/PlantillasPage';
+// Oculto temporalmente — usaremos Octopus Mail
+// import { PlantillasPage } from '@/pages/PlantillasPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 function RequiereAuth({ children }: { children: ReactElement }) {
@@ -100,6 +101,7 @@ export function AppRouter() {
             </RequiereRol>
           }
         />
+        {/* Oculto temporalmente — usaremos Octopus Mail
         <Route
           path="/plantillas"
           element={
@@ -108,6 +110,7 @@ export function AppRouter() {
             </RequiereRol>
           }
         />
+        */}
         <Route
           path="/configuracion"
           element={
