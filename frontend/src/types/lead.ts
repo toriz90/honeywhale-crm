@@ -104,5 +104,3 @@ export interface LeadsPaginados {
   limit: number;
   totalPages: number;
 }
-
-export type LeadKanban = Record<EtapaLead, Lead[]>;

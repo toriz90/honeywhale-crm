@@ -55,6 +55,14 @@ export interface ArchivadosPaginados {
   totalPages: number;
 }
 
+export interface KanbanEtapaPaginada {
+  data: Lead[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
 export interface BucketTemperatura {
   count: number;
   montoTotal: number;
@@ -285,6 +293,38 @@ export class LeadsService {
     );
 
     return resultado;
+  }
+
+  /**
+   * Variante paginada de findKanban: devuelve UNA etapa con paginación real
+   * (total cuenta filas en BD, no está topado a LIMITE_KANBAN_POR_ETAPA).
+   * Reusa el mismo orden y filtros que findKanban para que el scroll
+   * infinito en frontend siga viendo los leads en el mismo orden.
+   */
+  async findKanbanEtapa(
+    etapa: EtapaLead,
+    page: number,
+    pageSize: number,
+    usuarioActual: JwtUserPayload,
+    filtroAsignacion?: FiltroAsignacion,
+  ): Promise<KanbanEtapaPaginada> {
+    const qb = this.leadsRepo
+      .createQueryBuilder('lead')
+      .leftJoinAndSelect('lead.asignadoA', 'asignadoA')
+      .where('lead.etapa = :etapa', { etapa })
+      .andWhere('lead.archivado = :archivado', { archivado: false });
+
+    this.aplicarFiltroAsignacion(qb, usuarioActual, filtroAsignacion);
+
+    qb.orderBy('lead.fecha_pedido_wc', 'DESC')
+      .addOrderBy('lead.updated_at', 'DESC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize);
+
+    const [data, total] = await qb.getManyAndCount();
+    const hasMore = page * pageSize < total;
+
+    return { data, total, page, pageSize, hasMore };
   }
 
   async tomar(id: string, usuarioActual: JwtUserPayload): Promise<Lead> {

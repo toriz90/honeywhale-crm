@@ -70,7 +70,6 @@ export function useSyncWoocommerce() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [QK] });
       qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
     },
   });
 }
@@ -91,7 +90,6 @@ export function useRepararLeadsWoocommerce() {
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['leads-kanban'] });
     },
   });
 }

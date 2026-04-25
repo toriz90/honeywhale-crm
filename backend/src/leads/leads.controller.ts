@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -13,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { EtapaLead } from './enums/etapa-lead.enum';
 import { LeadsService } from './leads.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -72,6 +74,34 @@ export class LeadsController {
     @Query('filtro') filtroRaw?: string,
   ) {
     return this.leadsService.findKanban(usuario, parseFiltro(filtroRaw));
+  }
+
+  // Versión paginada para scroll infinito por columna. El endpoint /kanban
+  // sigue existiendo (devuelve hasta 50 por etapa) por compatibilidad.
+  @Get('kanban/etapa/:etapa')
+  findKanbanEtapa(
+    @Param('etapa') etapaRaw: string,
+    @CurrentUser() usuario: JwtUserPayload,
+    @Query('page') pageRaw?: string,
+    @Query('pageSize') pageSizeRaw?: string,
+    @Query('filtro') filtroRaw?: string,
+  ) {
+    if (!Object.values(EtapaLead).includes(etapaRaw as EtapaLead)) {
+      throw new BadRequestException('Etapa inválida');
+    }
+    const etapa = etapaRaw as EtapaLead;
+    const page = Math.max(parseInt(pageRaw ?? '', 10) || 1, 1);
+    const pageSize = Math.min(
+      Math.max(parseInt(pageSizeRaw ?? '', 10) || 50, 1),
+      100,
+    );
+    return this.leadsService.findKanbanEtapa(
+      etapa,
+      page,
+      pageSize,
+      usuario,
+      parseFiltro(filtroRaw),
+    );
   }
 
   @Get('stats-temperatura')

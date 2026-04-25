@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { api, unwrap } from '@/lib/api';
 import {
   CreateLeadPayload,
@@ -6,43 +12,84 @@ import {
   FiltroAsignacion,
   FiltrosLeads,
   Lead,
-  LeadKanban,
   LeadsPaginados,
   StatsTemperatura,
   UpdateLeadPayload,
 } from '@/types/lead';
 
-const QK_LEADS = 'leads';
-const QK_KANBAN = 'leads-kanban';
-const QK_STATS_TEMP = 'leads-stats-temperatura';
+// Todas las queries de leads cuelgan del prefix ['leads'] para que las
+// mutaciones puedan invalidarlas con un solo invalidateQueries({ queryKey: ['leads'] }).
+const QK_LEADS_ROOT = 'leads';
+
+export interface KanbanEtapaPage {
+  data: Lead[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+const PAGE_SIZE_KANBAN = 50;
 
 export function useLeads(filtros: FiltrosLeads) {
   return useQuery({
-    queryKey: [QK_LEADS, filtros],
+    queryKey: [QK_LEADS_ROOT, 'list', filtros],
     queryFn: () =>
       unwrap<LeadsPaginados>(api.get('/leads', { params: filtros })),
   });
 }
 
-export function useLeadKanban(filtro?: FiltroAsignacion) {
-  return useQuery({
-    queryKey: [QK_KANBAN, filtro ?? 'default'],
-    queryFn: () =>
-      unwrap<LeadKanban>(
-        api.get('/leads/kanban', {
-          params: filtro ? { filtro } : undefined,
-        }),
-      ),
-  });
-}
-
 export function useStatsTemperatura(refetchInterval = 30_000) {
   return useQuery({
-    queryKey: [QK_STATS_TEMP],
+    queryKey: [QK_LEADS_ROOT, 'stats-temperatura'],
     queryFn: () => unwrap<StatsTemperatura>(api.get('/leads/stats-temperatura')),
     refetchInterval,
     refetchIntervalInBackground: false,
   });
+}
+
+/**
+ * Scroll infinito por columna del kanban. Cada columna mantiene su propio
+ * cursor y total real (no topado). El queryKey incluye etapa+filtro para
+ * que React Query separe las cachés y se reseteen cuando cualquiera cambie.
+ */
+export function useLeadsKanbanEtapa(
+  etapa: EtapaLead,
+  filtro?: FiltroAsignacion,
+) {
+  const query = useInfiniteQuery({
+    queryKey: [QK_LEADS_ROOT, 'kanban-etapa', etapa, filtro ?? 'default'],
+    queryFn: ({ pageParam }) =>
+      unwrap<KanbanEtapaPage>(
+        api.get(`/leads/kanban/etapa/${etapa}`, {
+          params: {
+            page: pageParam,
+            pageSize: PAGE_SIZE_KANBAN,
+            ...(filtro ? { filtro } : {}),
+          },
+        }),
+      ),
+    initialPageParam: 1 as number,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? lastPage.page + 1 : undefined,
+    staleTime: 30_000,
+  });
+
+  const leads = useMemo(
+    () => query.data?.pages.flatMap((p) => p.data) ?? [],
+    [query.data],
+  );
+  const total = query.data?.pages[0]?.total ?? 0;
+
+  return {
+    leads,
+    total,
+    fetchNextPage: query.fetchNextPage,
+    hasNextPage: query.hasNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }
 
 export function useTomarLead() {
@@ -50,16 +97,14 @@ export function useTomarLead() {
   return useMutation({
     mutationFn: (id: string) => unwrap<Lead>(api.post(`/leads/${id}/tomar`)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_STATS_TEMP] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }
 
 export function useLead(id: string | undefined) {
   return useQuery({
-    queryKey: [QK_LEADS, id],
+    queryKey: [QK_LEADS_ROOT, 'detail', id],
     queryFn: () => unwrap<Lead>(api.get(`/leads/${id}`)),
     enabled: !!id,
   });
@@ -71,8 +116,7 @@ export function useCrearLead() {
     mutationFn: (payload: CreateLeadPayload) =>
       unwrap<Lead>(api.post('/leads', payload)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }
@@ -83,8 +127,7 @@ export function useActualizarLead() {
     mutationFn: ({ id, payload }: { id: string; payload: UpdateLeadPayload }) =>
       unwrap<Lead>(api.patch(`/leads/${id}`, payload)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }
@@ -95,8 +138,7 @@ export function useCambiarEtapa() {
     mutationFn: ({ id, etapa }: { id: string; etapa: EtapaLead }) =>
       unwrap<Lead>(api.patch(`/leads/${id}/etapa`, { etapa })),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }
@@ -115,8 +157,7 @@ export function useAsignarLead() {
         api.patch(`/leads/${id}/asignar`, { asignado_a_id: asignadoAId }),
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }
@@ -126,8 +167,7 @@ export function useEliminarLead() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/leads/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QK_LEADS] });
-      qc.invalidateQueries({ queryKey: [QK_KANBAN] });
+      qc.invalidateQueries({ queryKey: [QK_LEADS_ROOT] });
     },
   });
 }

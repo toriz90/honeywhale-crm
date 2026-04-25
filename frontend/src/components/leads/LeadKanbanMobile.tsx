@@ -1,27 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { MoreVertical } from 'lucide-react';
+import { Loader2, MoreVertical } from 'lucide-react';
 import {
   ETAPAS,
   ETAPA_LABELS,
   EtapaLead,
+  FiltroAsignacion,
   Lead,
-  LeadKanban as LeadKanbanTipo,
 } from '@/types/lead';
-import { useCambiarEtapa } from '@/hooks/useLeads';
+import { useCambiarEtapa, useLeadsKanbanEtapa } from '@/hooks/useLeads';
 import { Modal } from '@/components/ui/Modal';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { mensajeDeError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { LeadCard } from './LeadCard';
 
 interface LeadKanbanMobileProps {
-  data: LeadKanbanTipo;
+  filtro?: FiltroAsignacion;
   onClickLead?: (lead: Lead) => void;
   onEnviarCorreo?: (lead: Lead) => void;
 }
 
 export function LeadKanbanMobile({
-  data,
+  filtro,
   onClickLead,
   onEnviarCorreo,
 }: LeadKanbanMobileProps) {
@@ -29,7 +30,32 @@ export function LeadKanbanMobile({
   const [leadAccion, setLeadAccion] = useState<Lead | null>(null);
   const cambiarEtapa = useCambiarEtapa();
 
-  const leads = data[etapaActiva] ?? [];
+  const {
+    leads,
+    total,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useLeadsKanbanEtapa(etapaActiva, filtro);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const root = scrollRef.current;
+    if (!sentinel || !root) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPage();
+      },
+      { root, rootMargin: '200px' },
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, leads.length]);
 
   const mover = async (lead: Lead, etapa: EtapaLead) => {
     if (etapa === lead.etapa) {
@@ -50,7 +76,6 @@ export function LeadKanbanMobile({
       <div className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b border-border bg-elev px-2 py-2">
         {ETAPAS.map((etapa) => {
           const activa = etapa === etapaActiva;
-          const cantidad = (data[etapa] ?? []).length;
           return (
             <button
               key={etapa}
@@ -63,21 +88,24 @@ export function LeadKanbanMobile({
               )}
             >
               {ETAPA_LABELS[etapa]}
-              <span
-                className={cn(
-                  'rounded-full px-1.5 text-[10px]',
-                  activa ? 'bg-white/20' : 'bg-border/60 text-secondary',
-                )}
-              >
-                {cantidad}
-              </span>
+              {activa && (
+                <span className="rounded-full bg-white/20 px-1.5 text-[10px]">
+                  {total}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-3">
-        {leads.length === 0 ? (
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
+        {isLoading ? (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </div>
+        ) : total === 0 ? (
           <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-secondary">
             Sin leads en {ETAPA_LABELS[etapaActiva]}.
           </div>
@@ -103,6 +131,17 @@ export function LeadKanbanMobile({
                 </button>
               </div>
             ))}
+            <div ref={sentinelRef} className="h-1" />
+            {isFetchingNextPage && (
+              <div className="flex items-center justify-center py-2 text-secondary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            )}
+            {!hasNextPage && (
+              <div className="py-2 text-center text-xs text-[var(--text-secondary)]">
+                Sin más leads
+              </div>
+            )}
           </div>
         )}
       </div>
