@@ -102,11 +102,11 @@ export function useTomarLead() {
   });
 }
 
-export function useLead(id: string | undefined) {
+export function useLead(id: string | undefined, enabled = true) {
   return useQuery({
     queryKey: [QK_LEADS_ROOT, 'detail', id],
     queryFn: () => unwrap<Lead>(api.get(`/leads/${id}`)),
-    enabled: !!id,
+    enabled: enabled && !!id,
   });
 }
 

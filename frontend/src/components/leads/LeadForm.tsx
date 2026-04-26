@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { BadgeAtribucion } from './BadgeAtribucion';
 import { CambiarAtribucionModal } from './CambiarAtribucionModal';
 import { HistorialEventosRecuperacion } from './HistorialEventosRecuperacion';
+import { esRecuperacionOrganica } from './AvatarTienda';
 
 interface NotasWc {
   estado_wc?: string;
@@ -114,6 +115,7 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
   const puedeCambiarAtribucion =
     esRecuperado &&
     (usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR');
+  const esOrganica = esRecuperacionOrganica(lead ?? null);
 
   const {
     register,
@@ -243,13 +245,27 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
         {...register('orden_woo_id')}
         error={errors.orden_woo_id?.message}
       />
-      <Select
-        label="Asignar a"
-        {...register('asignado_a_id')}
-        options={opcionesAsignables}
-        error={errors.asignado_a_id?.message}
-        disabled={asignables.isLoading}
-      />
+      {esOrganica ? (
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-primary">
+            Asignar a
+          </label>
+          <div
+            className="flex h-11 items-center rounded-md border border-border bg-elev-2 px-3 text-base text-secondary md:h-10 md:text-sm"
+            title="Compra orgánica — sin agente asignado. Para reatribuir, usa el botón 'Cambiar atribución'."
+          >
+            🤖 Tienda (compra orgánica)
+          </div>
+        </div>
+      ) : (
+        <Select
+          label="Asignar a"
+          {...register('asignado_a_id')}
+          options={opcionesAsignables}
+          error={errors.asignado_a_id?.message}
+          disabled={asignables.isLoading}
+        />
+      )}
       <div className="md:col-span-2">
         <Input
           label="Motivo de abandono"

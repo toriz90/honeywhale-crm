@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, LayoutGrid, List, Trash2 } from 'lucide-react';
 import { Topbar } from '@/components/layout/Topbar';
@@ -19,7 +19,7 @@ import {
 } from '@/components/leads/FiltrosLeads';
 import { BannerCalientes } from '@/components/leads/BannerCalientes';
 import { PanelEnvioCorreo } from '@/components/correos/PanelEnvioCorreo';
-import { useEliminarLead, useLeads } from '@/hooks/useLeads';
+import { useEliminarLead, useLead, useLeads } from '@/hooks/useLeads';
 import { useNotificacionLeadCaliente } from '@/hooks/useNotificacionLeadCaliente';
 import {
   ETAPA_LABELS,
@@ -99,6 +99,25 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
 
   const lista = useLeads({ ...filtros, filtro: filtroEfectivo });
   const eliminar = useEliminarLead();
+
+  // Refrescamos el lead desde el backend mientras el modal está abierto: la
+  // versión guardada en `editLead` puede ser stale (ej. el usuario tomó el
+  // lead desde la card justo antes de abrir el modal). React Query ya
+  // invalida ['leads'] en useTomarLead/useActualizarLead/etc., así que esto
+  // captura cualquier cambio reciente sin pedir un refresh manual.
+  const leadFresco = useLead(editLead?.id, !!editLead && modalOpen);
+  const leadParaForm = leadFresco.data ?? editLead;
+  const cargandoLeadInicial =
+    !!editLead && modalOpen && leadFresco.isLoading && !leadParaForm;
+
+  // Si el lead fue borrado entre que se abrió el modal y que llegó la
+  // respuesta (404), cerramos el modal con feedback.
+  useEffect(() => {
+    if (!!editLead && modalOpen && leadFresco.isError) {
+      toast.error('No se pudo cargar el lead');
+      setModalOpen(false);
+    }
+  }, [editLead, modalOpen, leadFresco.isError]);
 
   const abrirNuevo = () => {
     setEditLead(null);
@@ -301,7 +320,23 @@ export function LeadsPage({ vistaEquipo = false }: LeadsPageProps = {}) {
         title={editLead ? 'Editar lead' : 'Nuevo lead'}
         size="lg"
       >
-        <LeadForm lead={editLead} onSuccess={() => setModalOpen(false)} />
+        {cargandoLeadInicial ? (
+          <Skeleton className="h-40" />
+        ) : (
+          <LeadForm
+            // El key incluye updated_at para que el form se remonte cuando el
+            // refetch trae una versión más reciente — react-hook-form sólo
+            // lee defaultValues en mount, así que un remount es la forma
+            // limpia de aplicar datos frescos sin un useEffect+reset manual.
+            key={
+              leadParaForm
+                ? `${leadParaForm.id}-${leadParaForm.updated_at}`
+                : 'nuevo'
+            }
+            lead={leadParaForm}
+            onSuccess={() => setModalOpen(false)}
+          />
+        )}
       </Modal>
 
       <ConfirmDialog

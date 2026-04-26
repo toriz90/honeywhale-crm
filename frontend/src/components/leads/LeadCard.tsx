@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useEliminarLead, useTomarLead } from '@/hooks/useLeads';
 import { mensajeDeError } from '@/lib/api';
 import { BadgeTemperatura } from './BadgeTemperatura';
+import { AvatarTienda, esRecuperacionOrganica } from './AvatarTienda';
 import { calcularTemperatura } from '@/utils/temperatura';
 import { cn } from '@/lib/utils';
 import { Modal } from '@/components/ui/Modal';
@@ -265,6 +266,13 @@ interface AvatarOTomarProps {
 
 function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
   const tomar = useTomarLead();
+
+  // Caso especial: recuperación orgánica (sin agente, etapa RECUPERADO,
+  // recuperadoPorAgente=false). Mostramos avatar virtual de "Tienda" — no
+  // hay nada que tomar y el "+" sería engañoso.
+  if (esRecuperacionOrganica(lead)) {
+    return <AvatarTienda />;
+  }
 
   // Asignado: avatar de iniciales, NO clickeable, ring si es mío.
   if (lead.asignadoA) {
