@@ -87,6 +87,17 @@ export class Lead {
   @Column({ name: 'fecha_pedido_wc', type: 'datetime', nullable: true })
   fecha_pedido_wc!: Date | null;
 
+  // NULL = histórico o aún no recuperado, true = con intervención de agente,
+  // false = compra orgánica (cliente regresó solo). Se setea en
+  // RecuperacionService al evaluar señales.
+  @Column({
+    name: 'recuperado_por_agente',
+    type: 'tinyint',
+    width: 1,
+    nullable: true,
+  })
+  recuperadoPorAgente!: boolean | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   created_at!: Date;
 

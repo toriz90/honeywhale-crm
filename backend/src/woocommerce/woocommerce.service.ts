@@ -11,6 +11,11 @@ import {
   ConfiguracionService,
   CredencialesWoocommerce,
 } from '../configuracion/configuracion.service';
+import { RecuperacionService } from '../leads/recuperacion.service';
+import {
+  OrigenEvento,
+  TipoEventoRecuperacion,
+} from '../leads/evento-recuperacion.entity';
 
 const ESTADOS_ABANDONADOS = ['pending', 'failed', 'cancelled', 'on-hold'];
 const PRODUCTO_MAX_LEN = 500;
@@ -82,6 +87,7 @@ export class WoocommerceService {
     private readonly leadRepo: Repository<Lead>,
     private readonly httpService: HttpService,
     private readonly configuracionService: ConfiguracionService,
+    private readonly recuperacionService: RecuperacionService,
   ) {}
 
   async probarConexion(): Promise<{
@@ -275,12 +281,34 @@ export class WoocommerceService {
       return { actualizado: false, lead, motivo: 'etapa_no_movible' };
     }
 
+    // Decisión de atribución ANTES de mover etapa: las señales se evalúan
+    // contra el estado actual del lead (etapa previa, asignación previa).
+    const etapaAnterior = lead.etapa;
+    const senales = await this.recuperacionService.evaluarSenales(lead);
+
     lead.etapa = EtapaLead.RECUPERADO;
     lead.fecha_cambio_etapa = new Date();
+    lead.recuperadoPorAgente = senales.esAgente;
     const guardado = await this.leadRepo.save(lead);
 
+    const tipoEvento = senales.esAgente
+      ? TipoEventoRecuperacion.AUTO_RECUPERADO
+      : TipoEventoRecuperacion.AUTO_ORGANICO;
+
+    await this.recuperacionService.registrarEvento({
+      leadId: guardado.id,
+      tipo: tipoEvento,
+      etapaAnterior,
+      asignadoAId: guardado.asignadoA?.id ?? guardado.asignado_a_id,
+      senales: senales.senales,
+      origen: OrigenEvento.WEBHOOK_WC,
+      decididoAutomaticamente: true,
+    });
+
     this.logger.log(
-      `Lead ${guardado.id} auto-recuperado por compra del cliente (orden ${ordenWooId})`,
+      `Lead ${guardado.id} → RECUPERADO ${tipoEvento} (orden ${ordenWooId}, señales: ${
+        senales.senales.length > 0 ? senales.senales.join(',') : 'ninguna'
+      })`,
     );
 
     return {
