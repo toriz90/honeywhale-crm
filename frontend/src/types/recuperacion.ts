@@ -1,3 +1,5 @@
+import { Lead } from './lead';
+
 export type TipoEventoRecuperacion =
   | 'AUTO_RECUPERADO'
   | 'AUTO_ORGANICO'
@@ -41,6 +43,6 @@ export interface CambiarAtribucionPayload {
 }
 
 export interface CambiarAtribucionResponse {
-  lead: { id: string; recuperadoPorAgente: boolean | null };
+  lead: Lead;
   evento: EventoRecuperacion;
 }

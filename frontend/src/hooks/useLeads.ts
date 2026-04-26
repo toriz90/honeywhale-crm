@@ -107,6 +107,11 @@ export function useLead(id: string | undefined, enabled = true) {
     queryKey: [QK_LEADS_ROOT, 'detail', id],
     queryFn: () => unwrap<Lead>(api.get(`/leads/${id}`)),
     enabled: enabled && !!id,
+    // El detail vive dentro del modal de edición; queremos que cualquier
+    // mutación (tomar, cambiar atribución, etc.) que invalide ['leads']
+    // dispare un refetch inmediato cuando el modal está abierto.
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 

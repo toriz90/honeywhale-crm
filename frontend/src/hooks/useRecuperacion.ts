@@ -34,9 +34,20 @@ export function useCambiarAtribucion() {
       unwrap<CambiarAtribucionResponse>(
         api.patch(`/leads/${leadId}/atribucion`, payload),
       ),
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
       toast.success('Atribución actualizada');
+      // Refresco INSTANTÁNEO del detail con la respuesta del backend — evita
+      // esperar al refetch para que el badge en el header del modal se
+      // actualice en cuanto se cierra el modal de override.
+      qc.setQueryData(['leads', 'detail', vars.leadId], data.lead);
+      // Invalidación amplia para listas/kanban.
       qc.invalidateQueries({ queryKey: ['leads'] });
+      // Refetch forzado del detail aunque la query esté inactive (el modal
+      // pudo cerrarse antes de que llegue la respuesta).
+      qc.invalidateQueries({
+        queryKey: ['leads', 'detail', vars.leadId],
+        refetchType: 'all',
+      });
       qc.invalidateQueries({
         queryKey: [QK_RECUPERACION, 'eventos', vars.leadId],
       });
