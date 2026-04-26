@@ -50,6 +50,10 @@ export interface Lead {
   fecha_cambio_etapa?: string | null;
   fecha_asignacion?: string | null;
   fecha_pedido_wc?: string | null;
+  // Atribución de la recuperación. NULL = histórico (lead recuperado antes de
+  // que el sistema de atribución existiera) o aún no recuperado. true =
+  // recuperación con intervención de agente. false = compra orgánica.
+  recuperadoPorAgente?: boolean | null;
   created_at: string;
   updated_at: string;
   // Posición ordinal entre los pedidos no archivados con el mismo email,

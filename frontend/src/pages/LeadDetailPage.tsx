@@ -1,7 +1,6 @@
-// `useState` y constructor de correos ocultos temporalmente — usaremos Octopus Mail
-// import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink /*, Mail */ } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RotateCcw /*, Mail */ } from 'lucide-react';
 import { toast } from 'sonner';
 import { Topbar } from '@/components/layout/Topbar';
 import { Card } from '@/components/ui/Card';
@@ -13,6 +12,9 @@ import { useActualizarLead, useLead } from '@/hooks/useLeads';
 import { useUsuariosAsignables } from '@/hooks/useUsuarios';
 import { useWoocommercePublico } from '@/hooks/useConfiguracion';
 import { LeadForm } from '@/components/leads/LeadForm';
+import { BadgeAtribucion } from '@/components/leads/BadgeAtribucion';
+import { CambiarAtribucionModal } from '@/components/leads/CambiarAtribucionModal';
+import { HistorialEventosRecuperacion } from '@/components/leads/HistorialEventosRecuperacion';
 import { ETAPA_LABELS, EtapaLead } from '@/types/lead';
 import { formatFecha, formatMoneda } from '@/lib/utils';
 import { mensajeDeError } from '@/lib/api';
@@ -31,6 +33,11 @@ export function LeadDetailPage() {
   const usuario = useAuthStore((s) => s.usuario);
   const puedeReasignar =
     usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR';
+  const puedeCambiarAtribucion =
+    !!data &&
+    data.etapa === 'RECUPERADO' &&
+    (usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR');
+  const [atribucionOpen, setAtribucionOpen] = useState(false);
   // Oculto temporalmente — usaremos Octopus Mail
   // const [panelOpen, setPanelOpen] = useState(false);
 
@@ -99,10 +106,14 @@ export function LeadDetailPage() {
                   </h2>
                   <p className="text-sm text-secondary">{data.producto}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge tono="accent">
                     {ETAPA_LABELS[data.etapa as EtapaLead]}
                   </Badge>
+                  <BadgeAtribucion
+                    recuperadoPorAgente={data.recuperadoPorAgente}
+                    etapa={data.etapa}
+                  />
                   <span className="text-lg font-semibold text-accent">
                     {formatMoneda(data.monto, data.moneda)}
                   </span>
@@ -146,6 +157,19 @@ export function LeadDetailPage() {
                   />
                 </div>
               )}
+
+              {puedeCambiarAtribucion && (
+                <div className="mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setAtribucionOpen(true)}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Cambiar atribución
+                  </Button>
+                </div>
+              )}
             </Card>
 
             {/* Oculto temporalmente — usaremos Octopus Mail
@@ -181,6 +205,11 @@ export function LeadDetailPage() {
               <LeadForm lead={data} />
             </Card>
 
+            <HistorialEventosRecuperacion
+              leadId={data.id}
+              etapa={data.etapa}
+            />
+
             {/* Oculto temporalmente — usaremos Octopus Mail
             <Card title="Historial de correos">
               <HistorialCorreosLead leadId={data.id} />
@@ -189,6 +218,14 @@ export function LeadDetailPage() {
           </>
         )}
       </div>
+
+      {data && data.etapa === 'RECUPERADO' && (
+        <CambiarAtribucionModal
+          lead={data}
+          isOpen={atribucionOpen}
+          onClose={() => setAtribucionOpen(false)}
+        />
+      )}
 
       {/* Oculto temporalmente — usaremos Octopus Mail
       <PanelEnvioCorreo
