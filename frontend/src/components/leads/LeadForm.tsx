@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { RotateCcw } from 'lucide-react';
 import { ETAPAS, ETAPA_LABELS, Lead } from '@/types/lead';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -11,6 +12,10 @@ import { Button } from '@/components/ui/Button';
 import { useCrearLead, useActualizarLead } from '@/hooks/useLeads';
 import { useUsuariosAsignables } from '@/hooks/useUsuarios';
 import { mensajeDeError } from '@/lib/api';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { BadgeAtribucion } from './BadgeAtribucion';
+import { CambiarAtribucionModal } from './CambiarAtribucionModal';
+import { HistorialEventosRecuperacion } from './HistorialEventosRecuperacion';
 
 interface NotasWc {
   estado_wc?: string;
@@ -102,6 +107,13 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
 
   const notasWc = useMemo(() => parsearNotasWc(lead ?? null), [lead]);
   const [mostrarJsonRaw, setMostrarJsonRaw] = useState(false);
+  const [atribucionOpen, setAtribucionOpen] = useState(false);
+
+  const usuario = useAuthStore((s) => s.usuario);
+  const esRecuperado = lead?.etapa === 'RECUPERADO';
+  const puedeCambiarAtribucion =
+    esRecuperado &&
+    (usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR');
 
   const {
     register,
@@ -165,8 +177,29 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
   });
 
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <Input label="Nombre" {...register('nombre')} error={errors.nombre?.message} />
+    <div className="flex flex-col gap-4">
+      {esRecuperado && lead && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-elev-2 p-3">
+          <BadgeAtribucion
+            recuperadoPorAgente={lead.recuperadoPorAgente}
+            etapa={lead.etapa}
+          />
+          {puedeCambiarAtribucion && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setAtribucionOpen(true)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Cambiar atribución
+            </Button>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Input label="Nombre" {...register('nombre')} error={errors.nombre?.message} />
       <Input
         label="Email"
         type="email"
@@ -293,6 +326,19 @@ export function LeadForm({ lead, onSuccess }: LeadFormProps) {
           {lead ? 'Guardar cambios' : 'Crear lead'}
         </Button>
       </div>
-    </form>
+      </form>
+
+      {esRecuperado && lead && (
+        <HistorialEventosRecuperacion leadId={lead.id} etapa={lead.etapa} />
+      )}
+
+      {puedeCambiarAtribucion && lead && (
+        <CambiarAtribucionModal
+          lead={lead}
+          isOpen={atribucionOpen}
+          onClose={() => setAtribucionOpen(false)}
+        />
+      )}
+    </div>
   );
 }
