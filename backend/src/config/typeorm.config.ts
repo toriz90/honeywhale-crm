@@ -5,6 +5,7 @@ import { config as loadEnv } from 'dotenv';
 import { join } from 'path';
 import { Usuario } from '../usuarios/usuario.entity';
 import { Lead } from '../leads/lead.entity';
+import { EventoRecuperacion } from '../leads/evento-recuperacion.entity';
 import { Configuracion } from '../configuracion/configuracion.entity';
 
 loadEnv({ path: join(process.cwd(), '.env') });
@@ -16,7 +17,7 @@ export const typeOrmOptions: MysqlConnectionOptions = {
   username: process.env.DB_USER ?? 'honeywhale',
   password: process.env.DB_PASSWORD ?? '',
   database: process.env.DB_NAME ?? 'honeywhale_crm',
-  entities: [Usuario, Lead, Configuracion],
+  entities: [Usuario, Lead, EventoRecuperacion, Configuracion],
   migrations: [join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
   synchronize: false,
   charset: 'utf8mb4_unicode_ci',

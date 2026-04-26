@@ -28,6 +28,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { CambiarEtapaDto } from './dto/cambiar-etapa.dto';
 import { AsignarLeadDto } from './dto/asignar-lead.dto';
+import { CambiarAtribucionDto } from './dto/cambiar-atribucion.dto';
 import {
   FiltrarLeadsDto,
   FiltroAsignacion,
@@ -37,6 +38,7 @@ import {
   ArchivarMesDto,
   ListarArchivadosQueryDto,
 } from './dto/archivar-mes.dto';
+import { RecuperacionService } from './recuperacion.service';
 
 function parseFiltro(raw?: string): FiltroAsignacion | undefined {
   if (!raw) return undefined;
@@ -48,7 +50,10 @@ function parseFiltro(raw?: string): FiltroAsignacion | undefined {
 @Controller('leads')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LeadsController {
-  constructor(private readonly leadsService: LeadsService) {}
+  constructor(
+    private readonly leadsService: LeadsService,
+    private readonly recuperacionService: RecuperacionService,
+  ) {}
 
   @Post()
   @Roles(Rol.ADMIN, Rol.SUPERVISOR)
@@ -186,6 +191,37 @@ export class LeadsController {
     @CurrentUser() usuario: JwtUserPayload,
   ) {
     return this.leadsService.tomar(id, usuario);
+  }
+
+  // Override manual de la atribución de una recuperación (sólo cuando el lead
+  // ya está en RECUPERADO). Crea un evento REVERSION en eventos_recuperacion
+  // con el decisor y las notas para auditoría.
+  @Patch(':id/atribucion')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  cambiarAtribucion(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CambiarAtribucionDto,
+    @CurrentUser() usuario: JwtUserPayload,
+  ) {
+    return this.recuperacionService.cambiarAtribucion(
+      id,
+      dto.recuperadoPorAgente,
+      usuario,
+      dto.notas,
+    );
+  }
+
+  // Historial de eventos de atribución (auto y manual) ordenados DESC.
+  // Agente sólo puede consultar leads suyos o sin asignar; ADMIN/SUPERVISOR
+  // ven cualquiera. El control de acceso está en RecuperacionService porque
+  // es más permisivo que LeadsService.findOne (que niega los sin asignar).
+  @Get(':id/eventos-recuperacion')
+  listarEventosRecuperacion(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() usuario: JwtUserPayload,
+  ) {
+    return this.recuperacionService.listarEventosDeLead(id, usuario);
   }
 
   @Delete(':id')
