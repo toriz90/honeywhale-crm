@@ -1,8 +1,8 @@
-﻿import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
+import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-// `Mail` oculto temporalmente â€” usaremos Octopus Mail
+// `Mail` oculto temporalmente — usaremos Octopus Mail
 import { Loader2, /* Mail, */ MoreVertical, Plus, Trash2 } from 'lucide-react';
-import { Lead } from '@/types/lead';
+import { ETAPA_LABELS, Lead } from '@/types/lead';
 import { formatMoneda } from '@/lib/utils';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useEliminarLead, useTomarLead } from '@/hooks/useLeads';
@@ -25,7 +25,7 @@ export function LeadCard({
   lead,
   onClick,
   onDragStart,
-  // onEnviarCorreo, // oculto temporalmente â€” usaremos Octopus Mail
+  // onEnviarCorreo, // oculto temporalmente — usaremos Octopus Mail
   draggable = true,
 }: LeadCardProps) {
   const usuario = useAuthStore((s) => s.usuario);
@@ -51,20 +51,25 @@ export function LeadCard({
 
   const esMio = !!usuario && lead.asignado_a_id === usuario.id;
 
-  // Borde de resalte: clientes recurrentes (3+ intentos) tienen prioridad
-  // sobre temperatura — un lead caliente recurrente es más urgente que uno
-  // caliente nuevo, así que su borde ámbar/rojo gana al naranja de calor.
   const totalIntentos = lead.totalIntentos ?? 0;
-  const bordeResalte =
+  const tieneBadgeIntento = totalIntentos >= 2;
+  const tieneBadgeTemp = !!lead.fecha_pedido_wc;
+  const muestraFilaBadges = tieneBadgeIntento || tieneBadgeTemp;
+
+  // Borde por prioridad descendente. Recurrencia gana a temperatura porque un
+  // lead caliente recurrente es más urgente que uno caliente nuevo. Sólo el
+  // borde default deja que el hover lo cambie a accent — los demás conservan
+  // su color en hover (el cursor-pointer ya da el feedback de clickeable).
+  const claseBorde =
     totalIntentos >= 5
-      ? 'border-2 border-[#ef4444]'
+      ? 'border-2 border-[#ef4444] animate-pulse-slow'
       : totalIntentos >= 3
         ? 'border-2 border-[#f5a623]'
         : temperatura === 'caliente'
           ? 'border-2 border-[#ff6b35]'
           : temperatura === 'tibio'
             ? 'border border-[#f57c00]'
-            : 'border border-[var(--border)]';
+            : 'border border-[var(--border)] hover:border-[var(--accent)]';
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -88,6 +93,8 @@ export function LeadCard({
     }
   };
 
+  const ariaLabel = `Lead ${lead.nombre}, etapa ${ETAPA_LABELS[lead.etapa]}, monto ${formatMoneda(lead.monto, lead.moneda)} ${lead.moneda}`;
+
   return (
     <div
       draggable={draggable}
@@ -95,7 +102,7 @@ export function LeadCard({
       onClick={() => onClick?.(lead)}
       role="button"
       tabIndex={0}
-      aria-label={`Lead ${lead.nombre}`}
+      aria-label={ariaLabel}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -103,110 +110,104 @@ export function LeadCard({
         }
       }}
       className={cn(
-        'group relative cursor-pointer rounded-lg bg-[var(--bg-elev)] p-3 transition-all',
-        'hover:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+        'group relative flex cursor-pointer flex-col gap-y-2 rounded-lg bg-[var(--bg-elev)] p-3.5 transition-all duration-150 ease-out md:p-3',
+        'hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)]',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
         draggable && 'active:cursor-grabbing',
-        bordeResalte,
+        claseBorde,
       )}
     >
-      {/* Fila 1: badge (izq) Â· nombre (centro, crece) Â· â‹® + avatar/+ (der) */}
-      <div className="mb-1.5 flex items-start gap-2">
-        {lead.fecha_pedido_wc && (
-          <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
-        )}
-        <h3
-          className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--text-primary)]"
-          title={lead.nombre}
+      {/* Fila 1 — badges (izq, wrap) · acciones (der, shrink-0). */}
+      {/* Renderizamos siempre la fila porque las acciones (menú/avatar) viven
+          aquí; si no hay badges, el lado izquierdo queda vacío y el avatar
+          queda alineado a la derecha. */}
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className={cn(
+            'flex min-w-0 flex-wrap items-center gap-1.5',
+            !muestraFilaBadges && 'hidden',
+          )}
         >
-          {lead.nombre}
-        </h3>
-        <BadgeIntento
-          numero={lead.intentoNumero}
-          total={lead.totalIntentos}
-        />
-        {/* Oculto temporalmente â€” usaremos Octopus Mail
-        {onEnviarCorreo && lead.email && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEnviarCorreo(lead);
-            }}
-            aria-label="Enviar correo de recuperaciÃ³n"
-            title="Enviar correo de recuperaciÃ³n"
-            className={cn(
-              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
-              'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
-              'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
-              // Mobile: siempre visible. Desktop: aparece en hover de la card.
-              'md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100',
-            )}
-          >
-            <Mail className="h-3.5 w-3.5" />
-          </button>
-        )}
-        */}
-        {puedeEliminar && (
-          <div ref={menuRef} className="relative shrink-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((v) => !v);
-              }}
-              aria-label="MÃ¡s opciones"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              title="MÃ¡s opciones"
-              className={cn(
-                'inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
-                'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
-                'md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100',
-                menuOpen && 'md:opacity-100',
-              )}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 top-8 z-30 min-w-[160px] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg-elev)] py-1 shadow-lg"
+          {tieneBadgeTemp && (
+            <BadgeTemperatura fechaPedido={lead.fecha_pedido_wc} compacto />
+          )}
+          {tieneBadgeIntento && (
+            <BadgeIntento
+              numero={lead.intentoNumero}
+              total={lead.totalIntentos}
+            />
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {puedeEliminar && (
+            <div ref={menuRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((v) => !v);
+                }}
+                aria-label="Más opciones"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                title="Más opciones"
+                className={cn(
+                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-all',
+                  'hover:bg-[var(--accent)]/10 hover:text-[var(--accent)]',
+                  'focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40',
+                  'md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100',
+                  menuOpen && 'md:opacity-100',
+                )}
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    setConfirmOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/10"
+                <MoreVertical className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-8 z-30 min-w-[160px] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg-elev)] py-1 shadow-lg"
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Eliminar lead
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        <AvatarOTomar
-          lead={lead}
-          esMio={esMio}
-          puedeTomar={puedeTomar}
-        />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      setConfirmOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar lead
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <AvatarOTomar lead={lead} esMio={esMio} puedeTomar={puedeTomar} />
+        </div>
       </div>
 
-      {/* Fila 2: producto */}
-      <p
-        className="mb-1 truncate text-xs text-[var(--text-secondary)]"
-        title={lead.producto || 'Sin productos'}
+      {/* Fila 2 — nombre del cliente */}
+      <h3
+        className="block w-full truncate text-sm font-semibold leading-tight text-[var(--text-primary)]"
+        title={lead.nombre}
       >
-        {lead.producto || 'Sin productos'}
+        {lead.nombre}
+      </h3>
+
+      {/* Fila 3 — producto */}
+      <p
+        className={cn(
+          'truncate text-xs text-[var(--text-secondary)]',
+          !lead.producto && 'italic',
+        )}
+        title={lead.producto || 'Pedido sin productos'}
+      >
+        {lead.producto || 'Pedido sin productos'}
       </p>
 
-      {/* Fila 3: monto + moneda */}
+      {/* Fila 4 — monto destacado + moneda */}
       <div className="flex items-baseline gap-1">
         <span className="text-lg font-bold text-[var(--monto-color)]">
           {formatMoneda(lead.monto, lead.moneda)}
@@ -223,7 +224,7 @@ export function LeadCard({
             onClose={() => {
               if (!eliminar.isPending) setConfirmOpen(false);
             }}
-            title={`Â¿Eliminar lead ${lead.nombre}?`}
+            title={`¿Eliminar lead ${lead.nombre}?`}
             size="sm"
             fullScreenOnMobile={false}
             footer={
@@ -246,8 +247,8 @@ export function LeadCard({
             }
           >
             <p className="text-sm text-[var(--text-secondary)]">
-              Esta acciÃ³n se puede revertir desde la base de datos pero no
-              desde la interfaz. Â¿Continuar?
+              Esta acción se puede revertir desde la base de datos pero no
+              desde la interfaz. ¿Continuar?
             </p>
           </Modal>
         </div>
@@ -265,11 +266,11 @@ interface AvatarOTomarProps {
 function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
   const tomar = useTomarLead();
 
-  // Asignado: avatar de iniciales, NO clickeable, ring si es mÃ­o.
+  // Asignado: avatar de iniciales, NO clickeable, ring si es mío.
   if (lead.asignadoA) {
     return (
       <span
-        aria-label={`Asignado a ${lead.asignadoA.nombre}${esMio ? ' (tÃº)' : ''}`}
+        aria-label={`Asignado a ${lead.asignadoA.nombre}${esMio ? ' (tú)' : ''}`}
         title={lead.asignadoA.nombre}
         className={cn(
           'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white',
@@ -283,7 +284,7 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
     );
   }
 
-  // Sin asignar pero el usuario no puede tomarlo: cÃ­rculo decorativo.
+  // Sin asignar pero el usuario no puede tomarlo: círculo decorativo.
   if (!puedeTomar) {
     return (
       <span
@@ -296,7 +297,7 @@ function AvatarOTomar({ lead, esMio, puedeTomar }: AvatarOTomarProps) {
     );
   }
 
-  // Sin asignar + puedeTomar: botÃ³n clickeable que dispara la mutation.
+  // Sin asignar + puedeTomar: botón clickeable que dispara la mutation.
   const onTomar = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (tomar.isPending) return;
