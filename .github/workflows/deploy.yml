@@ -1,6 +1,7 @@
 name: Deploy a producción
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths-ignore:
